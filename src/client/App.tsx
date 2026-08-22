@@ -10,18 +10,9 @@ import NotificationBell from './components/NotificationBell';
 import SiteNav from './components/SiteNav';
 import SigilLoader from './components/SigilLoader';
 import type { NavItem } from '../shared/nav';
-import Login from './pages/Login';
-import MemberDetail from './pages/MemberDetail';
-import AccountSettings from './pages/AccountSettings';
-import Roster from './pages/Roster';
-import Leaderboard from './pages/Leaderboard';
-import Tournaments from './pages/Tournaments';
-import TournamentDetail from './pages/TournamentDetail';
-import Home from './pages/Home';
-import CustomPage from './pages/CustomPage';
-import News from './pages/News';
-import NewsPost from './pages/NewsPost';
-import Events from './pages/Events';
+// Setup stays a static import: fetchSetupStatus below is called during boot,
+// outside the Suspense-wrapped route tree, so the module loads eagerly either
+// way — lazy-loading just the default export here wouldn't save anything.
 import Setup, { fetchSetupStatus, type SetupStatus } from './pages/Setup';
 import { decorateWordmark, wordmarkEnabled, isMustrHost } from './lib/wordmark';
 import { api } from './lib/api';
@@ -42,6 +33,22 @@ const GalleryAlbum = lazy(() => import('./pages/GalleryAlbum'));
 // standalone viral landing, so load it on demand and keep it out of the app's
 // initial bundle.
 const ForgeShare = lazy(() => import('./pages/ForgeShare'));
+
+// Every routed page loads on demand — a visit to any one route shouldn't pay
+// for the code of the other eleven. The <Suspense> already wrapping <Routes>
+// below (unchanged) covers all of these; this is a pure packaging change.
+const Login = lazy(() => import('./pages/Login'));
+const MemberDetail = lazy(() => import('./pages/MemberDetail'));
+const AccountSettings = lazy(() => import('./pages/AccountSettings'));
+const Roster = lazy(() => import('./pages/Roster'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const Tournaments = lazy(() => import('./pages/Tournaments'));
+const TournamentDetail = lazy(() => import('./pages/TournamentDetail'));
+const Home = lazy(() => import('./pages/Home'));
+const CustomPage = lazy(() => import('./pages/CustomPage'));
+const News = lazy(() => import('./pages/News'));
+const NewsPost = lazy(() => import('./pages/NewsPost'));
+const Events = lazy(() => import('./pages/Events'));
 
 /** Shown to a pending applicant who lands on a members-only area. */
 function PendingNotice() {

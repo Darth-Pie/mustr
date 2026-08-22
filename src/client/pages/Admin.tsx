@@ -13,7 +13,7 @@
  * mobile, so the tool shows first instead of being pushed below the whole menu).
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Navigate, Link, useParams } from 'react-router-dom';
 import { MorphIcon } from 'morphicons/react';
 import {
@@ -46,39 +46,46 @@ import { isMustrHost } from '../lib/wordmark';
 import { getRecent } from '../lib/recent';
 import UsageBar from '../components/UsageBar';
 import MorphingTabs from '../components/MorphingTabs';
-import NewsAdmin from './NewsAdmin';
-import GalleryAdmin from './GalleryAdmin';
-import Ranks from './Ranks';
-import Roles from './Roles';
-import Medals from './Medals';
-import Games from './Games';
-import WarRecords from './WarRecords';
-import Announcements from './Announcements';
-import IdentityAdmin from './IdentityAdmin';
-import AnalyticsAdmin from './AnalyticsAdmin';
-import ModulesAdmin from './ModulesAdmin';
-import Theme from './Theme';
-import BrandingAdmin from './BrandingAdmin';
-import BrandmarkAdmin from './BrandmarkAdmin';
-import ForgeStudio from './ForgeStudio';
-import SeoAdmin from './SeoAdmin';
-import FooterAdmin from './FooterAdmin';
-import PagesAdmin from './PagesAdmin';
-import BuiltinPagesAdmin from './BuiltinPagesAdmin';
-import NavAdmin from './NavAdmin';
-import OrgChartDesigner from './OrgChartDesigner';
-import AttendanceAdmin from './AttendanceAdmin';
-import TournamentsAdmin from './TournamentsAdmin';
-import AllianceAdmin from './AllianceAdmin';
-import ApplicantsAdmin from './ApplicantsAdmin';
-import BansAdmin from './BansAdmin';
-import TrainingAdmin from './TrainingAdmin';
-import MustrGgAdmin from './MustrGgAdmin';
-import AdminMenuAdmin from './AdminMenuAdmin';
-import NotificationsAdmin from './NotificationsAdmin';
-import NotificationsInbox from './NotificationsInbox';
-import SnapshotsAdmin from './SnapshotsAdmin';
-import AuditLog from './AuditLog';
+import SigilLoader from '../components/SigilLoader';
+
+// Every admin tool is its own chunk, loaded only when its tab is opened — a
+// session that only ever visits Ranks & Roles shouldn't pay for News, Alliance,
+// the Org Chart designer, and 25 other tools it never renders. TAB_RENDERERS
+// below invokes exactly one of these per render, so this is a pure packaging
+// change: same components, same props, nothing about behavior moves.
+const NewsAdmin = lazy(() => import('./NewsAdmin'));
+const GalleryAdmin = lazy(() => import('./GalleryAdmin'));
+const Ranks = lazy(() => import('./Ranks'));
+const Roles = lazy(() => import('./Roles'));
+const Medals = lazy(() => import('./Medals'));
+const Games = lazy(() => import('./Games'));
+const WarRecords = lazy(() => import('./WarRecords'));
+const Announcements = lazy(() => import('./Announcements'));
+const IdentityAdmin = lazy(() => import('./IdentityAdmin'));
+const AnalyticsAdmin = lazy(() => import('./AnalyticsAdmin'));
+const ModulesAdmin = lazy(() => import('./ModulesAdmin'));
+const Theme = lazy(() => import('./Theme'));
+const BrandingAdmin = lazy(() => import('./BrandingAdmin'));
+const BrandmarkAdmin = lazy(() => import('./BrandmarkAdmin'));
+const ForgeStudio = lazy(() => import('./ForgeStudio'));
+const SeoAdmin = lazy(() => import('./SeoAdmin'));
+const FooterAdmin = lazy(() => import('./FooterAdmin'));
+const PagesAdmin = lazy(() => import('./PagesAdmin'));
+const BuiltinPagesAdmin = lazy(() => import('./BuiltinPagesAdmin'));
+const NavAdmin = lazy(() => import('./NavAdmin'));
+const OrgChartDesigner = lazy(() => import('./OrgChartDesigner'));
+const AttendanceAdmin = lazy(() => import('./AttendanceAdmin'));
+const TournamentsAdmin = lazy(() => import('./TournamentsAdmin'));
+const AllianceAdmin = lazy(() => import('./AllianceAdmin'));
+const ApplicantsAdmin = lazy(() => import('./ApplicantsAdmin'));
+const BansAdmin = lazy(() => import('./BansAdmin'));
+const TrainingAdmin = lazy(() => import('./TrainingAdmin'));
+const MustrGgAdmin = lazy(() => import('./MustrGgAdmin'));
+const AdminMenuAdmin = lazy(() => import('./AdminMenuAdmin'));
+const NotificationsAdmin = lazy(() => import('./NotificationsAdmin'));
+const NotificationsInbox = lazy(() => import('./NotificationsInbox'));
+const SnapshotsAdmin = lazy(() => import('./SnapshotsAdmin'));
+const AuditLog = lazy(() => import('./AuditLog'));
 
 /** Cached admin-menu arrangement, so the sidebar renders in the saved order on
  *  first paint instead of flashing the default and then reordering. */
@@ -319,7 +326,7 @@ export default function Admin() {
               hrefFor={(k) => `/admin/${activeItem.key}/${k}`}
             />
           )}
-          {TAB_RENDERERS[activeTab.key]?.()}
+          <Suspense fallback={<SigilLoader />}>{TAB_RENDERERS[activeTab.key]?.()}</Suspense>
         </div>
       </div>
     </>
