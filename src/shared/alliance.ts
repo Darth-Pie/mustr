@@ -18,6 +18,33 @@
 /** Namespaced prefix so a leaked alliance token is easy to spot (cf. `clt_`). */
 export const ALLIANCE_TOKEN_PREFIX = 'allc_';
 
+/** Prefix for a one-step pairing INVITE token (distinct from a live link token). */
+export const ALLIANCE_INVITE_PREFIX = 'allinv_';
+
+/**
+ * A "connect string" bundles an inviting org's base URL + invite token into one
+ * copy-pasteable code, so pairing is a single paste instead of typing a URL and
+ * a token separately. base64url of {u, t}; opaque to the user.
+ */
+export function encodeConnectString(url: string, token: string): string {
+  const json = JSON.stringify({ u: url, t: token });
+  return btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Decode a connect string to { url, token }, or null if it isn't valid. */
+export function decodeConnectString(code: string): { url: string; token: string } | null {
+  try {
+    const b64 = code.trim().replace(/-/g, '+').replace(/_/g, '/');
+    const parsed = JSON.parse(atob(b64)) as { u?: unknown; t?: unknown };
+    const url = cleanBaseUrl(parsed.u);
+    const token = typeof parsed.t === 'string' ? parsed.t.trim() : '';
+    if (!url || !token.startsWith(ALLIANCE_INVITE_PREFIX)) return null;
+    return { url, token };
+  } catch {
+    return null;
+  }
+}
+
 export type AllianceKind = 'test' | 'event' | 'announcement';
 export const ALLIANCE_KINDS: AllianceKind[] = ['test', 'event', 'announcement'];
 

@@ -29,9 +29,23 @@ interface Channel {
   id: string;
   name: string;
 }
+interface InviteView {
+  id: number;
+  prefix: string;
+  label: string | null;
+  expiresAt: number;
+  consumedAt: number | null;
+  expired: boolean;
+}
 
 function when(ts: number | null): string {
   return ts ? new Date(ts * 1000).toLocaleString() : 'never';
+}
+
+function inviteState(i: InviteView): string {
+  if (i.consumedAt) return 'used';
+  if (i.expired) return 'expired';
+  return `expires ${new Date(i.expiresAt * 1000).toLocaleDateString()}`;
 }
 
 export default function AllianceAdmin() {
@@ -43,12 +57,21 @@ export default function AllianceAdmin() {
   const [theirToken, setTheirToken] = useState('');
   // A freshly minted token to hand an ally — shown once, then dismissed.
   const [fresh, setFresh] = useState<{ name: string; token: string } | null>(null);
+  // One-step pairing: invites we've generated + the join box.
+  const [invites, setInvites] = useState<InviteView[]>([]);
+  const [inviteLabel, setInviteLabel] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  // A freshly generated connect code to hand an ally — shown once.
+  const [connectCode, setConnectCode] = useState<string | null>(null);
 
   const load = () =>
     api.get<{ links: LinkView[] }>('/alliance/links').then((r) => setLinks(r.links)).catch(() => setLinks([]));
+  const loadInvites = () =>
+    api.get<{ invites: InviteView[] }>('/alliance/invites').then((r) => setInvites(r.invites)).catch(() => setInvites([]));
 
   useEffect(() => {
     void load();
+    void loadInvites();
     api.get<{ channels: Channel[] }>('/settings/discord-channels').then((r) => setChannels(r.channels ?? [])).catch(() => {});
   }, []);
 
@@ -87,6 +110,30 @@ export default function AllianceAdmin() {
       const r = await api.post<{ inboundToken: string }>(`/alliance/links/${l.id}/rotate`);
       setFresh({ name: l.name, token: r.inboundToken });
       return 'New token minted. Send it to them; the old one no longer works.';
+    });
+
+  const genInvite = () =>
+    run(async () => {
+      const r = await api.post<{ connectString: string }>('/alliance/invites', { label: inviteLabel.trim() || undefined });
+      setConnectCode(r.connectString);
+      setInviteLabel('');
+      await loadInvites();
+      return 'Invite created. Copy the connect code below and send it to your ally.';
+    });
+
+  const revokeInvite = (id: number) =>
+    run(async () => {
+      await api.del(`/alliance/invites/${id}`);
+      await loadInvites();
+      return 'Invite revoked.';
+    });
+
+  const joinByCode = () =>
+    run(async () => {
+      const r = await api.post<{ link: LinkView | null }>('/alliance/join', { code: joinCode.trim() });
+      setJoinCode('');
+      await load();
+      return r.link ? `Connected to “${r.link.name}”. Pick a channel for their broadcasts below.` : 'Connected.';
     });
 
   const sendTest = () =>
@@ -130,19 +177,78 @@ export default function AllianceAdmin() {
         </div>
       )}
 
-      <h3 className="account-subhead">Add an allied org</h3>
+      {connectCode && (
+        <div className="token-reveal">
+          <strong>Send this connect code to your ally. It’s shown only once.</strong>
+          <p className="muted small">
+            They paste it into their own Alliance panel under “Join an alliance”. Both sites link automatically — no tokens
+            to swap back and forth. The code is single-use and expires in 7 days.
+          </p>
+          <div className="token-reveal-row">
+            <code className="token-value">{connectCode}</code>
+            <button type="button" className="primary" onClick={() => void navigator.clipboard?.writeText(connectCode)}>
+              Copy
+            </button>
+          </div>
+          <button type="button" className="ghost" onClick={() => setConnectCode(null)}>
+            Done
+          </button>
+        </div>
+      )}
+
+      <h3 className="account-subhead">Invite an ally</h3>
       <p className="muted">
-        Enter their org name and the base URL of their mustr site (e.g. <code>https://allies.example</code>).
-        You’ll get a token to send them; paste the token they give you into “their token”.
+        Generate a connect code and send it to the other org. When they paste it into their Alliance panel, both sites
+        pair up automatically.
       </p>
       <div className="alliance-add">
-        <input type="text" placeholder="Org name (e.g. Red Talon)" value={name} maxLength={80} disabled={busy} onChange={(e) => setName(e.target.value)} />
-        <input type="url" placeholder="https://their-mustr-site" value={baseUrl} maxLength={200} disabled={busy} onChange={(e) => setBaseUrl(e.target.value)} />
-        <input type="text" placeholder="Their token (optional, paste later)" value={theirToken} maxLength={200} disabled={busy} onChange={(e) => setTheirToken(e.target.value)} />
-        <button type="button" className="primary" disabled={busy || !name.trim() || !baseUrl.trim()} onClick={() => void addAlly()}>
-          Add ally
+        <input type="text" placeholder="Label (optional, e.g. Red Talon)" value={inviteLabel} maxLength={80} disabled={busy} onChange={(e) => setInviteLabel(e.target.value)} />
+        <button type="button" className="primary" disabled={busy} onClick={() => void genInvite()}>
+          Generate invite
         </button>
       </div>
+      {invites.length > 0 && (
+        <ul className="alliance-invites">
+          {invites.map((i) => (
+            <li key={i.id}>
+              <code>{i.prefix}…</code>
+              {i.label && <span> · {i.label}</span>}
+              <span className="muted small"> · {inviteState(i)}</span>
+              {!i.consumedAt && (
+                <button type="button" className="mini danger" disabled={busy} onClick={() => void revokeInvite(i.id)}>
+                  Revoke
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h3 className="account-subhead">Join an alliance</h3>
+      <p className="muted">Paste a connect code an ally sent you.</p>
+      <div className="alliance-add">
+        <input type="text" placeholder="Paste connect code" value={joinCode} maxLength={800} disabled={busy} onChange={(e) => setJoinCode(e.target.value)} />
+        <button type="button" className="primary" disabled={busy || !joinCode.trim()} onClick={() => void joinByCode()}>
+          Connect
+        </button>
+      </div>
+
+      <details className="alliance-advanced">
+        <summary className="muted small">Add manually (advanced)</summary>
+        <p className="muted">
+          Enter their org name and the base URL of their mustr site (e.g. <code>https://allies.example</code>).
+          You’ll get a token to send them; paste the token they give you into “their token”. Use this only if the
+          connect-code flow above isn’t an option.
+        </p>
+        <div className="alliance-add">
+          <input type="text" placeholder="Org name (e.g. Red Talon)" value={name} maxLength={80} disabled={busy} onChange={(e) => setName(e.target.value)} />
+          <input type="url" placeholder="https://their-mustr-site" value={baseUrl} maxLength={200} disabled={busy} onChange={(e) => setBaseUrl(e.target.value)} />
+          <input type="text" placeholder="Their token (optional, paste later)" value={theirToken} maxLength={200} disabled={busy} onChange={(e) => setTheirToken(e.target.value)} />
+          <button type="button" className="primary" disabled={busy || !name.trim() || !baseUrl.trim()} onClick={() => void addAlly()}>
+            Add ally
+          </button>
+        </div>
+      </details>
 
       <h3 className="account-subhead">Linked orgs</h3>
       {links === null ? (

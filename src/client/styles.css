@@ -7704,6 +7704,12 @@ a.button.primary { background: var(--color-accent); color: var(--color-accent-te
 .alliance-settoken { margin-top: 0.5rem; }
 .alliance-settoken-row { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
 .alliance-settoken-row input { flex: 1; min-width: 0; }
+.alliance-invites { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.alliance-invites li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+.alliance-invites .danger { margin-left: auto; }
+.alliance-advanced { margin-top: 1rem; }
+.alliance-advanced summary { cursor: pointer; }
+.alliance-advanced .alliance-add { margin-top: 0.5rem; }
 
 /* Shared tournaments (subscriber view) + remote-entrant provenance tag. */
 .alliance-tourneys { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }

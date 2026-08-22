@@ -39,6 +39,11 @@ function when(ts: number | null): string {
   return new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// Personal access tokens were groundwork for a mobile app that isn't built yet,
+// and nothing consumes them today. Parked as a future feature: the backend
+// (routes, revoke, docs) stays intact; flip this to re-expose the panel.
+const SHOW_API_TOKENS = false;
+
 export default function AccountSettings() {
   const { viewer } = useSession();
   // Personal accessibility prefs (per-device). Changes apply + persist instantly.
@@ -67,7 +72,7 @@ export default function AccountSettings() {
       .catch(() => setTokens([]));
 
   useEffect(() => {
-    void load();
+    if (SHOW_API_TOKENS) void load();
   }, []);
 
   async function create() {
@@ -187,6 +192,12 @@ export default function AccountSettings() {
       </div>
 
       <h3 className="account-subhead">API access</h3>
+      {!SHOW_API_TOKENS && (
+        <p className="muted">Personal access tokens for a mobile app or scripts are planned for a future release.</p>
+      )}
+
+      {SHOW_API_TOKENS && (
+      <>
       <p className="muted">
         A personal access token lets the mobile app (or a script) sign in as you. It carries exactly your
         permissions. Treat it like a password — anyone with it can act as you until you revoke it.
@@ -256,6 +267,8 @@ export default function AccountSettings() {
             ))}
           </tbody>
         </table>
+      )}
+      </>
       )}
     </section>
   );

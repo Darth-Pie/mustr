@@ -16,7 +16,8 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
 import { db, requirePermission } from '../middleware/auth';
-import { cleanBaseUrl, sanitizeBroadcast } from '../../shared/alliance';
+import { cleanBaseUrl, decodeConnectString, sanitizeBroadcast } from '../../shared/alliance';
+import { mintInvite, resolveInvite, handleConnect, joinAlliance } from '../alliance/invites';
 import {
   sanitizeTournamentOffer,
   sanitizeTournamentEntry,
@@ -91,6 +92,71 @@ alliance.post('/inbound', async (c) => {
     .catch(() => {});
 
   return c.json({ ok: true, posted });
+});
+
+/* ------------------------------------------------------------------ *
+ * ONE-STEP PAIRING — invites + the connect handshake.
+ *
+ * mint an invite → hand the ally the connect string → they POST /connect (or
+ * paste the string into their own "Join" box, which POSTs it for them). /connect
+ * is public, authed by the invite token; everything else is alliance.manage.
+ * ------------------------------------------------------------------ */
+
+/** Mint an invite for an ally. Returns the token + connect string ONCE. */
+alliance.post('/invites', requirePermission('alliance.manage'), async (c) => {
+  const body = await c.req.json<{ label?: unknown }>().catch(() => ({}) as { label?: unknown });
+  const label = typeof body.label === 'string' ? body.label.trim().slice(0, 80) : '';
+  const minted = await mintInvite(c.env, db(c.env), c.get('viewer')!.id, label);
+  return c.json({
+    invite: { id: minted.id, prefix: minted.prefix, expiresAt: minted.expiresAt, label: label || null },
+    token: minted.token,
+    connectString: minted.connectString,
+  });
+});
+
+/** List invites (no secrets — prefix + status only). */
+alliance.get('/invites', requirePermission('alliance.manage'), async (c) => {
+  const rows = await db(c.env).query.allianceInvites.findMany({ orderBy: (t, { desc }) => desc(t.createdAt) });
+  return c.json({
+    invites: rows.map((r) => ({
+      id: r.id,
+      prefix: r.tokenPrefix,
+      label: r.label,
+      expiresAt: r.expiresAt,
+      consumedAt: r.consumedAt,
+      expired: r.expiresAt <= now(),
+    })),
+  });
+});
+
+/** Revoke a pending invite. */
+alliance.delete('/invites/:id', requirePermission('alliance.manage'), async (c) => {
+  await db(c.env).delete(s.allianceInvites).where(eq(s.allianceInvites.id, Number(c.req.param('id'))));
+  return c.json({ ok: true });
+});
+
+/** PUBLIC: an ally redeems our invite (Bearer = the invite token). Establishes
+ *  the two-way link and returns the token they'll use to call us. */
+alliance.post('/connect', async (c) => {
+  const authz = c.req.header('authorization') ?? '';
+  const token = /^bearer /i.test(authz) ? authz.slice(7).trim() : '';
+  const invite = await resolveInvite(db(c.env), token);
+  if (!invite) return c.json({ ok: false, error: 'That invite is invalid, used, or expired.' }, 401);
+  const payload = await c.req.json().catch(() => ({}));
+  const res = await handleConnect(c.env, db(c.env), invite, payload);
+  if (!res.ok) return c.json({ ok: false, error: res.error }, (res.code ?? 400) as 400);
+  return c.json({ ok: true, ...res.response });
+});
+
+/** Redeem a connect string an ally gave US (we call their /connect). */
+alliance.post('/join', requirePermission('alliance.manage'), async (c) => {
+  const body = await c.req.json<{ code?: unknown }>().catch(() => ({}) as { code?: unknown });
+  const code = typeof body.code === 'string' ? body.code : '';
+  const target = decodeConnectString(code);
+  if (!target) return c.json({ error: 'That connect code isn’t valid. Copy it again from the other org.' }, 400);
+  const res = await joinAlliance(c.env, db(c.env), target, c.get('viewer')!.id);
+  if (!res.ok) return c.json({ error: res.error }, (res.code ?? 400) as 400);
+  return c.json({ ok: true, link: res.link ? view(res.link) : null });
 });
 
 /* ------------------------------------------------------------------ *

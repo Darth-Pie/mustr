@@ -347,6 +347,32 @@ export const allianceLinks = sqliteTable(
   (t) => [index('alliance_links_enabled_idx').on(t.enabled)],
 );
 
+/**
+ * A pending alliance INVITE — the one-step pairing path. An org mints an invite
+ * (this row: only the token's hash is stored), hands the ally a "connect string"
+ * bundling this token + our base URL, and the ally's instance redeems it at
+ * `/api/alliance/connect` — which creates the two-way link and consumes the
+ * invite. Single-use and expiring, so a leaked code can't be replayed.
+ */
+export const allianceInvites = sqliteTable(
+  'alliance_invites',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    // SHA-256 (base64url) of the invite token; the plaintext is shown once.
+    tokenHash: text('token_hash').notNull().unique(),
+    tokenPrefix: text('token_prefix').notNull(),
+    // Optional note, e.g. the org this invite is meant for.
+    label: text('label'),
+    expiresAt: integer('expires_at').notNull(),
+    // Set once redeemed: when, and the link it produced.
+    consumedAt: integer('consumed_at'),
+    consumedLinkId: integer('consumed_link_id').references(() => allianceLinks.id, { onDelete: 'set null' }),
+    createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: integer('created_at').notNull().default(now),
+  },
+  (t) => [index('alliance_invites_hash_idx').on(t.tokenHash)],
+);
+
 /* ------------------------------------------------------------------ *
  * Content
  * ------------------------------------------------------------------ */
