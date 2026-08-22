@@ -81,6 +81,8 @@ export interface EntrantView {
   discordId: string | null;
   status: string;
   checkedIn: boolean;
+  /** Set when the entrant was fielded by an allied org (federation). */
+  originName: string | null;
   team: { userId: number; name: string; isCaptain: boolean }[];
 }
 
@@ -92,6 +94,7 @@ export async function loadEntrants(database: DB, tournamentId: number): Promise<
       name: s.tournamentEntrants.name,
       status: s.tournamentEntrants.status,
       checkedIn: s.tournamentEntrants.checkedIn,
+      originName: s.tournamentEntrants.originName,
       userId: s.tournamentEntrants.userId,
       username: s.users.username,
       globalName: s.users.globalName,
@@ -144,6 +147,7 @@ export async function loadEntrants(database: DB, tournamentId: number): Promise<
     discordId: r.discordId,
     status: r.status,
     checkedIn: r.checkedIn,
+    originName: r.originName,
     team: teamByEntrant.get(r.id) ?? [],
   }));
 }

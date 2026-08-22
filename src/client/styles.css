@@ -7704,3 +7704,18 @@ a.button.primary { background: var(--color-accent); color: var(--color-accent-te
 .alliance-settoken { margin-top: 0.5rem; }
 .alliance-settoken-row { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
 .alliance-settoken-row input { flex: 1; min-width: 0; }
+
+/* Shared tournaments (subscriber view) + remote-entrant provenance tag. */
+.alliance-tourneys { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+.alliance-tourney { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 0.8rem 0.9rem; background: color-mix(in srgb, var(--color-bg) 55%, transparent); }
+.alliance-tourney-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.alliance-tourney-enter { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+.alliance-tourney-enter input { flex: 1; min-width: 0; }
+.alliance-tourney-entries { list-style: none; margin: 0.55rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.alliance-tourney-entries li { display: flex; align-items: center; gap: 0.4rem; }
+.alliance-tourney-entries .danger { margin-left: auto; }
+.alliance-tourney-champ { margin: 0.6rem 0 0; }
+.alliance-standings { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 0.85rem; }
+.alliance-standings th, .alliance-standings td { text-align: left; padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--color-border); }
+.alliance-standings th:first-child, .alliance-standings td:first-child { width: 2rem; color: var(--color-muted); }
+.entrant-origin { font-size: 0.72rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: color-mix(in srgb, var(--color-accent) 16%, transparent); color: var(--color-accent); white-space: nowrap; }

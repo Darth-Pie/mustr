@@ -15,6 +15,7 @@ import type { AppContext } from '../env';
 import { db, requireAuth, requireUser, requirePermission } from '../middleware/auth';
 import { memberName } from '../../shared/names';
 import { announceTournament } from '../discord/tournaments';
+import { fanOutTournamentOffer, broadcastTournamentUpdate } from '../alliance/tournamentFederation';
 import { sanitizeTournamentInput, computeStandings } from '../../shared/tournament';
 import {
   addEntrant,
@@ -39,6 +40,13 @@ import {
 const tournaments = new Hono<AppContext>();
 
 const nowSec = () => Math.floor(Date.now() / 1000);
+
+/** Can the viewer share tournaments with the alliance? (Gated on top of
+ *  tournaments.manage, mirroring the events "share with alliance" toggle.) */
+function canAlliance(c: Context<AppContext>): boolean {
+  const v = c.get('viewer');
+  return !!v && (v.isGod || v.permissions.includes('alliance.manage'));
+}
 
 /** Look up a tournament by numeric id or slug. */
 async function findTournament(database: ReturnType<typeof db>, key: string) {
@@ -176,16 +184,20 @@ tournaments.post('/', requirePermission('tournaments.manage'), async (c) => {
       swissRounds: input.swissRounds,
       maxEntrants: input.maxEntrants,
       isPublic: input.isPublic,
+      // Only honored for organizers who can also manage the alliance.
+      shareAlliance: input.shareAlliance && canAlliance(c),
       startsAt: input.startsAt,
       status: 'registration',
       createdBy: viewer.id,
     })
     .returning();
   // Announce the new open tournament to Discord (best-effort).
-  const newId = created[0]!.id;
+  const tournament = created[0]!;
   const origin = new URL(c.req.url).origin;
-  c.executionCtx.waitUntil(announceTournament(c.env, { tournamentId: newId, kind: 'open', baseUrl: origin }));
-  return c.json({ tournament: created[0] }, 201);
+  c.executionCtx.waitUntil(announceTournament(c.env, { tournamentId: tournament.id, kind: 'open', baseUrl: origin }));
+  // Offer it to allied orgs so they can field entrants (best-effort).
+  if (tournament.shareAlliance) c.executionCtx.waitUntil(fanOutTournamentOffer(c.env, tournament));
+  return c.json({ tournament }, 201);
 });
 
 tournaments.put('/:id', requirePermission('tournaments.manage'), async (c) => {
@@ -197,6 +209,8 @@ tournaments.put('/:id', requirePermission('tournaments.manage'), async (c) => {
 
   // Format/competitor type are locked once a bracket exists (entrants seeded).
   const locked = existing.status === 'in_progress' || existing.status === 'complete';
+  // Only alliance managers can flip sharing; others keep the existing value.
+  const shareAlliance = canAlliance(c) ? input.shareAlliance : existing.shareAlliance;
   const set: Record<string, unknown> = {
     name: input.name,
     description: input.description || null,
@@ -208,6 +222,7 @@ tournaments.put('/:id', requirePermission('tournaments.manage'), async (c) => {
     swissRounds: input.swissRounds,
     maxEntrants: input.maxEntrants,
     isPublic: input.isPublic,
+    shareAlliance,
     startsAt: input.startsAt,
     updatedAt: nowSec(),
   };
@@ -216,12 +231,20 @@ tournaments.put('/:id', requirePermission('tournaments.manage'), async (c) => {
     set.competitorType = input.competitorType;
   }
   const updated = await database.update(s.tournaments).set(set).where(eq(s.tournaments.id, id)).returning();
-  return c.json({ tournament: updated[0] });
+  const tournament = updated[0]!;
+  // Keep allies in sync: (re)offer while shared, or withdraw on toggle-off.
+  if (tournament.shareAlliance) c.executionCtx.waitUntil(fanOutTournamentOffer(c.env, tournament));
+  else if (existing.shareAlliance) c.executionCtx.waitUntil(fanOutTournamentOffer(c.env, tournament, { closed: true }));
+  return c.json({ tournament });
 });
 
 tournaments.delete('/:id', requirePermission('tournaments.manage'), async (c) => {
   const id = Number(c.req.param('id'));
-  await db(c.env).delete(s.tournaments).where(eq(s.tournaments.id, id));
+  const database = db(c.env);
+  const existing = await database.query.tournaments.findFirst({ where: eq(s.tournaments.id, id) });
+  await database.delete(s.tournaments).where(eq(s.tournaments.id, id));
+  // Withdraw the offer from allies so their mirror shows it as closed.
+  if (existing?.shareAlliance) c.executionCtx.waitUntil(fanOutTournamentOffer(c.env, existing, { closed: true }));
   return c.json({ ok: true });
 });
 
@@ -370,7 +393,13 @@ tournaments.post('/:id/status', requirePermission('tournaments.manage'), async (
   if (!isOpenForEntrants(t.status)) {
     return c.json({ error: 'The bracket is already generated.' }, 400);
   }
-  await database.update(s.tournaments).set({ status, updatedAt: nowSec() }).where(eq(s.tournaments.id, id));
+  const updated = await database
+    .update(s.tournaments)
+    .set({ status, updatedAt: nowSec() })
+    .where(eq(s.tournaments.id, id))
+    .returning();
+  // Re-offer so allies' mirrors track whether registration is open.
+  if (updated[0]?.shareAlliance) c.executionCtx.waitUntil(fanOutTournamentOffer(c.env, updated[0]));
   return c.json({ ok: true, status });
 });
 
@@ -381,6 +410,8 @@ tournaments.post('/:id/generate', requirePermission('tournaments.manage'), async
   if (!t) return c.json({ error: 'No such tournament' }, 404);
   const res = await generateBracket(database, t);
   if (!res.ok) return c.json({ error: res.error }, (res.code ?? 400) as 400);
+  // Tell allies registration closed and the bracket is live (no-op if unshared).
+  c.executionCtx.waitUntil(broadcastTournamentUpdate(c.env, database, id));
   return c.json({ ok: true });
 });
 
@@ -406,6 +437,8 @@ tournaments.post('/:id/next-round', requirePermission('tournaments.manage'), asy
       c.executionCtx.waitUntil(announceTournament(c.env, { tournamentId: id, kind: 'champion', baseUrl: origin }));
     }
   }
+  // Push the new standings (and champion, if it just ended) to allies.
+  c.executionCtx.waitUntil(broadcastTournamentUpdate(c.env, database, id));
   return c.json({ ok: true, round: res.round });
 });
 
@@ -431,6 +464,8 @@ tournaments.post('/:id/matches/:matchId/report', requirePermission('tournaments.
       c.executionCtx.waitUntil(announceTournament(c.env, { tournamentId: id, kind: 'champion', baseUrl: origin }));
     }
   }
+  // Push updated standings / champion to allies (no-op if unshared).
+  c.executionCtx.waitUntil(broadcastTournamentUpdate(c.env, database, id));
   return c.json({ ok: true, champion: res.champion ?? null });
 });
 

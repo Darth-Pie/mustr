@@ -399,6 +399,7 @@ function EntrantRow({
         {e.seed != null && <span className="entrant-seed">{e.seed}</span>}
         <img className="avatar" src={memberAvatar({ ...e, discordId: e.discordId ?? '' }, 48)} alt="" width={28} height={28} loading="lazy" />
         <span className="entrant-name">{e.name}</span>
+        {e.originName && <span className="entrant-origin">via {e.originName}</span>}
         {canManage && openForEntrants && (
           <button type="button" className="mini danger entrant-remove" onClick={() => void onAct(() => api.del(`/tournaments/${tournamentId}/entrants/${e.id}`))}>
             Remove
@@ -415,7 +416,11 @@ function EntrantRow({
         <button type="button" className="entrant-team-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           <span className="entrant-team-icon" aria-hidden>👥</span>
           <span className="entrant-name">{e.name}</span>
-          <span className="muted small">{e.team.length} player{e.team.length === 1 ? '' : 's'}</span>
+          {e.originName ? (
+            <span className="entrant-origin">via {e.originName}</span>
+          ) : (
+            <span className="muted small">{e.team.length} player{e.team.length === 1 ? '' : 's'}</span>
+          )}
         </button>
         {canManage && openForEntrants && (
           <button type="button" className="mini danger entrant-remove" onClick={() => void onAct(() => api.del(`/tournaments/${tournamentId}/entrants/${e.id}`))}>

@@ -12,6 +12,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import Switch from '../components/Switch';
+import { STATUS_LABELS } from '../lib/tournaments';
+import { FORMAT_LABELS, type TournamentFormat, type CompetitorType, type TournamentStatus } from '../../shared/tournament';
 
 interface LinkView {
   id: number;
@@ -192,7 +194,185 @@ export default function AllianceAdmin() {
           ))}
         </ul>
       )}
+
+      <SharedTournaments />
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Shared tournaments — the SUBSCRIBER view: tournaments allied orgs are hosting
+ * that we can field entrants into and follow the results of.
+ * ------------------------------------------------------------------ */
+
+interface MirrorEntry {
+  id: number;
+  name: string;
+  status: 'submitted' | 'accepted' | 'rejected' | 'withdrawn';
+}
+interface Mirror {
+  id: number;
+  host: string;
+  name: string;
+  format: TournamentFormat;
+  competitorType: CompetitorType;
+  status: TournamentStatus;
+  url: string | null;
+  registrationOpen: boolean;
+  standings: { name: string; wins: number; losses: number; rank: number }[] | null;
+  champion: string | null;
+  closed: boolean;
+  entries: MirrorEntry[];
+}
+
+function SharedTournaments() {
+  const { run, busy, error, notice } = useAction();
+  const [mirrors, setMirrors] = useState<Mirror[] | null>(null);
+
+  const load = () =>
+    api
+      .get<{ tournaments: Mirror[] }>('/alliance/tournament/mirrors')
+      .then((r) => setMirrors(r.tournaments))
+      .catch(() => setMirrors([]));
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const submit = (m: Mirror, name: string) =>
+    run(async () => {
+      await api.post(`/alliance/tournament/mirrors/${m.id}/entries`, { name });
+      await load();
+      return `Entered “${name}” in ${m.name}.`;
+    });
+
+  const withdraw = (m: Mirror, entry: MirrorEntry) =>
+    run(async () => {
+      await api.del(`/alliance/tournament/mirrors/${m.id}/entries/${entry.id}`);
+      await load();
+      return `Withdrew “${entry.name}”.`;
+    });
+
+  const active = (mirrors ?? []).filter((m) => !m.closed);
+
+  return (
+    <>
+      <h3 className="account-subhead">Shared tournaments</h3>
+      <p className="muted">
+        Tournaments allied orgs are hosting. Field your own entrants and follow the standings — the host runs the bracket.
+      </p>
+      <Alerts error={error} notice={notice} />
+
+      {mirrors === null ? (
+        <p className="muted">Loading…</p>
+      ) : active.length === 0 ? (
+        <p className="muted">No allied tournaments right now. When an ally shares one, it shows up here.</p>
+      ) : (
+        <ul className="alliance-tourneys">
+          {active.map((m) => (
+            <MirrorCard key={m.id} m={m} busy={busy} onSubmit={submit} onWithdraw={withdraw} />
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+function MirrorCard({
+  m,
+  busy,
+  onSubmit,
+  onWithdraw,
+}: {
+  m: Mirror;
+  busy: boolean;
+  onSubmit: (m: Mirror, name: string) => void;
+  onWithdraw: (m: Mirror, e: MirrorEntry) => void;
+}) {
+  const [name, setName] = useState('');
+  const live = m.entries.filter((e) => e.status !== 'withdrawn');
+
+  return (
+    <li className="alliance-tourney">
+      <div className="alliance-tourney-head">
+        <div>
+          <b>{m.name}</b>
+          <span className="muted small"> · hosted by {m.host}</span>
+        </div>
+        <span className={`status-chip status-${m.status}`}>{STATUS_LABELS[m.status]}</span>
+      </div>
+      <div className="muted small">
+        {FORMAT_LABELS[m.format]} · {m.competitorType === 'team' ? 'Teams' : 'Individuals'}
+        {m.url && (
+          <>
+            {' · '}
+            <a className="ext-link" href={m.url} target="_blank" rel="noopener noreferrer">View bracket</a>
+          </>
+        )}
+      </div>
+
+      {m.registrationOpen ? (
+        <div className="alliance-tourney-enter">
+          <input
+            type="text"
+            placeholder={m.competitorType === 'team' ? 'Team name' : 'Player name'}
+            value={name}
+            maxLength={80}
+            disabled={busy}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <button
+            type="button"
+            className="primary mini"
+            disabled={busy || !name.trim()}
+            onClick={() => {
+              onSubmit(m, name.trim());
+              setName('');
+            }}
+          >
+            Enter
+          </button>
+        </div>
+      ) : (
+        <p className="muted small">Registration is closed.</p>
+      )}
+
+      {live.length > 0 && (
+        <ul className="alliance-tourney-entries">
+          {live.map((e) => (
+            <li key={e.id}>
+              <span>{e.name}</span>
+              <span className="muted small"> · {e.status}</span>
+              {m.registrationOpen && (
+                <button type="button" className="mini danger" disabled={busy} onClick={() => onWithdraw(m, e)}>
+                  Withdraw
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {m.champion && <p className="alliance-tourney-champ">🏆 Champion: <b>{m.champion}</b></p>}
+
+      {m.standings && m.standings.length > 0 && (
+        <table className="alliance-standings">
+          <thead>
+            <tr><th>#</th><th>Entrant</th><th>W</th><th>L</th></tr>
+          </thead>
+          <tbody>
+            {m.standings.slice(0, 8).map((row, i) => (
+              <tr key={i}>
+                <td>{row.rank}</td>
+                <td>{row.name}</td>
+                <td>{row.wins}</td>
+                <td>{row.losses}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </li>
   );
 }
 

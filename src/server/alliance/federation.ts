@@ -97,34 +97,57 @@ export async function postBroadcastLocally(env: Env, db: DB, link: AllianceLink,
 }
 
 /**
+ * POST a JSON payload to one ally at `path`, authenticated with the token they
+ * issued us. Bounded by a timeout; returns the Response, or null on network
+ * error/timeout. The caller decides whether to read the body (synchronous
+ * request/response, e.g. submitting a tournament entry) or ignore it (fire-and-
+ * forget fan-out). Never throws.
+ */
+export async function postJsonToAlly(
+  link: Pick<AllianceLink, 'baseUrl' | 'outboundToken'>,
+  path: string,
+  payload: unknown,
+  timeoutMs = OUTBOUND_TIMEOUT_MS,
+): Promise<Response | null> {
+  if (!link.baseUrl || !link.outboundToken) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(`${link.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${link.outboundToken}` },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal,
+    });
+  } catch {
+    // Isolate: one dead/slow ally must never block the rest or the triggering action.
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Fan the same JSON payload out to every enabled, two-way ally at `path`. Safe to
+ * call inside ctx.waitUntil — it isolates each ally, bounds each request, and
+ * never throws. Used for broadcasts and for host→subscriber tournament pushes.
+ */
+export async function fanOutJson(env: Env, path: string, payload: unknown): Promise<void> {
+  try {
+    const db = drizzle(env.DB, { schema: s });
+    const links = await db.query.allianceLinks.findMany({ where: eq(s.allianceLinks.enabled, true) });
+    const targets = links.filter((l) => l.baseUrl && l.outboundToken);
+    await Promise.allSettled(targets.map((l) => postJsonToAlly(l, path, payload)));
+  } catch (err) {
+    console.error(`Alliance fan-out (${path}) failed`, err);
+  }
+}
+
+/**
  * Fan an originated broadcast out to every enabled ally. Safe to call inside
  * ctx.waitUntil — it isolates each ally, bounds each request with a timeout, and
  * never throws.
  */
 export async function fanOut(env: Env, broadcast: AllianceBroadcast): Promise<void> {
-  try {
-    const db = drizzle(env.DB, { schema: s });
-    const links = await db.query.allianceLinks.findMany({ where: eq(s.allianceLinks.enabled, true) });
-    const targets = links.filter((l) => l.baseUrl && l.outboundToken);
-    await Promise.allSettled(targets.map((l) => postToAlly(l, broadcast)));
-  } catch (err) {
-    console.error('Alliance fan-out failed', err);
-  }
-}
-
-async function postToAlly(link: AllianceLink, broadcast: AllianceBroadcast): Promise<void> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), OUTBOUND_TIMEOUT_MS);
-  try {
-    await fetch(`${link.baseUrl}/api/alliance/inbound`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${link.outboundToken}` },
-      body: JSON.stringify(broadcast),
-      signal: ctrl.signal,
-    });
-  } catch {
-    // Isolate: one dead/slow ally must never block the rest or the triggering action.
-  } finally {
-    clearTimeout(timer);
-  }
+  await fanOutJson(env, '/api/alliance/inbound', broadcast);
 }

@@ -71,6 +71,8 @@ export interface TournamentInput {
   /** NULL/undefined = unlimited. */
   maxEntrants: number | null;
   isPublic: boolean;
+  /** Offered to allied orgs over federation (only honored for alliance.manage). */
+  shareAlliance: boolean;
   description: string;
   imageUrl: string;
   gameId: number | null;
@@ -132,6 +134,7 @@ export function sanitizeTournamentInput(raw: unknown): TournamentInput {
     swissRounds: clampInt(o.swissRounds, 1, 20, 5),
     maxEntrants,
     isPublic: o.isPublic === true,
+    shareAlliance: o.shareAlliance === true,
     description: cleanStr(o.description, 4000),
     imageUrl: cleanUrl(o.imageUrl),
     gameId: Number.isInteger(gameRaw) && gameRaw > 0 ? gameRaw : null,

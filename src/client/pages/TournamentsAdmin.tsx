@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
+import { useSession } from '../lib/session';
 import Switch from '../components/Switch';
 import {
   TOURNAMENT_FORMATS,
@@ -30,6 +31,8 @@ interface MedalRow {
 
 export default function TournamentsAdmin() {
   const navigate = useNavigate();
+  const { can } = useSession();
+  const canAlliance = can('alliance.manage');
   const [list, setList] = useState<TournamentSummary[]>([]);
   const [games, setGames] = useState<GameRow[]>([]);
   const [medals, setMedals] = useState<MedalRow[]>([]);
@@ -48,6 +51,7 @@ export default function TournamentsAdmin() {
   const [maxEntrants, setMaxEntrants] = useState('');
   const [gameId, setGameId] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [shareAlliance, setShareAlliance] = useState(false);
   const [description, setDescription] = useState('');
 
   const loadList = () =>
@@ -97,6 +101,7 @@ export default function TournamentsAdmin() {
         maxEntrants: maxEntrants ? Number(maxEntrants) : null,
         gameId: gameId ? Number(gameId) : null,
         isPublic,
+        shareAlliance,
         description: description.trim(),
       });
       navigate(`/tournaments/${tournament.slug}`);
@@ -199,6 +204,15 @@ export default function TournamentsAdmin() {
             </div>
             <Switch checked={isPublic} onChange={setIsPublic} label="Public bracket" />
           </div>
+          {canAlliance && (
+            <div className="toggle-row">
+              <div>
+                <span>Share with alliance</span>
+                <span className="muted small"> — allied orgs can field entrants and follow the results</span>
+              </div>
+              <Switch checked={shareAlliance} onChange={setShareAlliance} label="Share with alliance" />
+            </div>
+          )}
         </div>
 
         <button type="button" className="primary" disabled={busy} onClick={() => void create()}>

@@ -11,12 +11,17 @@
  * only. A freshly minted inbound token is returned exactly once, at creation.
  */
 
-import { Hono } from 'hono';
-import { eq } from 'drizzle-orm';
+import { Hono, type Context } from 'hono';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
 import { db, requirePermission } from '../middleware/auth';
 import { cleanBaseUrl, sanitizeBroadcast } from '../../shared/alliance';
+import {
+  sanitizeTournamentOffer,
+  sanitizeTournamentEntry,
+  sanitizeTournamentUpdate,
+} from '../../shared/allianceTournament';
 import {
   mintAllianceToken,
   resolveInboundLink,
@@ -24,6 +29,13 @@ import {
   makeBroadcast,
   fanOut,
 } from '../alliance/federation';
+import {
+  applyOffer,
+  applyUpdate,
+  handleRemoteEntry,
+  submitEntry,
+  withdrawEntry,
+} from '../alliance/tournamentFederation';
 
 const alliance = new Hono<AppContext>();
 
@@ -43,6 +55,13 @@ function view(r: typeof s.allianceLinks.$inferSelect) {
 
 const now = () => Math.floor(Date.now() / 1000);
 const cleanChannel = (v: unknown) => (typeof v === 'string' && /^\d{5,25}$/.test(v) ? v : null);
+
+/** Resolve the alliance link behind an inbound Bearer token (the ally calling us). */
+async function inboundLink(c: Context<AppContext>) {
+  const authz = c.req.header('authorization') ?? '';
+  const token = /^bearer /i.test(authz) ? authz.slice(7).trim() : '';
+  return resolveInboundLink(db(c.env), token);
+}
 
 /* ------------------------------------------------------------------ *
  * INBOUND — an ally hands us a broadcast. Auth = the alliance token WE issued
@@ -161,6 +180,118 @@ alliance.post('/test', requirePermission('alliance.manage'), async (c) => {
     'This is a test alliance broadcast. If you can see it, cross-org federation is working.',
   );
   c.executionCtx.waitUntil(fanOut(c.env, b));
+  return c.json({ ok: true });
+});
+
+/* ------------------------------------------------------------------ *
+ * TOURNAMENT FEDERATION — inbound (token-authed, host↔subscriber).
+ *
+ * offer/update are host→subscriber pushes (we upsert a mirror); entry is a
+ * subscriber→host submission we act on synchronously. All authed by the alliance
+ * token, and "which org" is always the resolved link, never the payload.
+ * ------------------------------------------------------------------ */
+
+/** Host → us: an offer to take part in a hosted tournament. We mirror it. */
+alliance.post('/tournament/offer', async (c) => {
+  const link = await inboundLink(c);
+  if (!link) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const offer = sanitizeTournamentOffer(await c.req.json().catch(() => null));
+  if (!offer) return c.json({ ok: false, error: 'invalid offer' }, 422);
+  await applyOffer(db(c.env), link, offer).catch(() => {});
+  await db(c.env).update(s.allianceLinks).set({ lastInboundAt: now() }).where(eq(s.allianceLinks.id, link.id)).catch(() => {});
+  return c.json({ ok: true });
+});
+
+/** Host → us: a status/standings/champion snapshot for a mirrored tournament. */
+alliance.post('/tournament/update', async (c) => {
+  const link = await inboundLink(c);
+  if (!link) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const update = sanitizeTournamentUpdate(await c.req.json().catch(() => null));
+  if (!update) return c.json({ ok: false, error: 'invalid update' }, 422);
+  await applyUpdate(db(c.env), link, update).catch(() => {});
+  return c.json({ ok: true });
+});
+
+/** Subscriber → us (we host): field a competitor. Acted on synchronously. */
+alliance.post('/tournament/entry', async (c) => {
+  const link = await inboundLink(c);
+  if (!link) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const entry = sanitizeTournamentEntry(await c.req.json().catch(() => null));
+  if (!entry) return c.json({ ok: false, error: 'invalid entry' }, 422);
+  const res = await handleRemoteEntry(db(c.env), link, entry);
+  if (!res.ok) return c.json({ ok: false, error: res.error }, (res.code ?? 400) as 400);
+  return c.json({ ok: true, status: res.status });
+});
+
+/* ------------------------------------------------------------------ *
+ * TOURNAMENT FEDERATION — subscriber admin (alliance.manage). Browse the
+ * tournaments allies are hosting, and field/withdraw our entrants.
+ * ------------------------------------------------------------------ */
+
+alliance.get('/tournament/mirrors', requirePermission('alliance.manage'), async (c) => {
+  const database = db(c.env);
+  const rows = await database
+    .select({
+      id: s.allianceTournaments.id,
+      host: s.allianceLinks.name,
+      allianceLinkId: s.allianceTournaments.allianceLinkId,
+      ref: s.allianceTournaments.ref,
+      name: s.allianceTournaments.name,
+      format: s.allianceTournaments.format,
+      competitorType: s.allianceTournaments.competitorType,
+      status: s.allianceTournaments.status,
+      startsAt: s.allianceTournaments.startsAt,
+      url: s.allianceTournaments.url,
+      registrationOpen: s.allianceTournaments.registrationOpen,
+      standings: s.allianceTournaments.standings,
+      champion: s.allianceTournaments.champion,
+      closed: s.allianceTournaments.closed,
+      updatedAt: s.allianceTournaments.updatedAt,
+    })
+    .from(s.allianceTournaments)
+    .innerJoin(s.allianceLinks, eq(s.allianceLinks.id, s.allianceTournaments.allianceLinkId))
+    .orderBy(asc(s.allianceTournaments.closed), desc(s.allianceTournaments.updatedAt));
+
+  const entries = await database
+    .select()
+    .from(s.allianceTournamentEntries);
+  const byTournament = new Map<number, typeof entries>();
+  for (const e of entries) {
+    const list = byTournament.get(e.allianceTournamentId) ?? [];
+    list.push(e);
+    byTournament.set(e.allianceTournamentId, list);
+  }
+
+  return c.json({
+    tournaments: rows.map((r) => ({
+      ...r,
+      entries: (byTournament.get(r.id) ?? []).map((e) => ({ id: e.id, name: e.name, status: e.status })),
+    })),
+  });
+});
+
+alliance.post('/tournament/mirrors/:id/entries', requirePermission('alliance.manage'), async (c) => {
+  const id = Number(c.req.param('id'));
+  const database = db(c.env);
+  const mirror = await database.query.allianceTournaments.findFirst({ where: eq(s.allianceTournaments.id, id) });
+  if (!mirror) return c.json({ error: 'No such tournament.' }, 404);
+  const { name } = await c.req.json<{ name?: string }>().catch(() => ({ name: undefined }));
+  const res = await submitEntry(database, mirror, name ?? '', c.get('viewer')!.id);
+  if (!res.ok) return c.json({ error: res.error }, (res.code ?? 400) as 400);
+  return c.json({ ok: true, entry: res.entry ? { id: res.entry.id, name: res.entry.name, status: res.entry.status } : null }, 201);
+});
+
+alliance.delete('/tournament/mirrors/:id/entries/:entryId', requirePermission('alliance.manage'), async (c) => {
+  const id = Number(c.req.param('id'));
+  const entryRowId = Number(c.req.param('entryId'));
+  const database = db(c.env);
+  const mirror = await database.query.allianceTournaments.findFirst({ where: eq(s.allianceTournaments.id, id) });
+  if (!mirror) return c.json({ error: 'No such tournament.' }, 404);
+  const entry = await database.query.allianceTournamentEntries.findFirst({
+    where: and(eq(s.allianceTournamentEntries.id, entryRowId), eq(s.allianceTournamentEntries.allianceTournamentId, id)),
+  });
+  if (!entry) return c.json({ error: 'No such entry.' }, 404);
+  await withdrawEntry(database, mirror, entry);
   return c.json({ ok: true });
 });
 

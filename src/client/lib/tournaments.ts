@@ -49,6 +49,8 @@ export interface Entrant {
   discordId: string | null;
   status: string;
   checkedIn: boolean;
+  /** Set when the entrant was fielded by an allied org (federation). */
+  originName: string | null;
   team: { userId: number; name: string; isCaptain: boolean }[];
 }
 
