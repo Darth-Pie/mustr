@@ -149,7 +149,7 @@ pages.get('/:slug/export', requirePermission('pages.manage'), async (c) => {
   return c.json({
     slug,
     title: row.title ?? slug,
-    html: renderLayoutBody(row.layout),
+    html: await renderLayoutBody(row.layout),
     exportedAt: Math.floor(Date.now() / 1000),
   });
 });

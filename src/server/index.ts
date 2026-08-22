@@ -523,7 +523,7 @@ app.get('/legal', async (c) => {
     });
     if (!row) return c.notFound();
     title = row.title || 'Legal';
-    body = renderLayoutBody(row.layout);
+    body = await renderLayoutBody(row.layout);
   } catch {
     return c.notFound();
   }

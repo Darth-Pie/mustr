@@ -3,7 +3,7 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
 import { db, requireAuth, requireUser, requirePermission } from '../middleware/auth';
-import { can, outranks } from '../../shared/permissions';
+import { can, outranks, permissionsWithinGrant, type Permission } from '../../shared/permissions';
 import { memberName } from '../../shared/names';
 import { discordAvatar } from '../../shared/avatar';
 import { DiscordError } from '../discord/rest';
@@ -537,6 +537,18 @@ members.post('/:id/roles', requirePermission('roles.assign'), async (c) => {
   const userId = Number(c.req.param('id'));
   const { roleId, reason } = await c.req.json<{ roleId: number; reason?: string }>();
   const viewer = c.get('viewer')!;
+
+  // A role can only be handed out by someone who already holds everything it
+  // grants — otherwise "can assign roles" is a path to becoming an admin.
+  const rolePerms = (
+    await db(c.env)
+      .select({ permission: s.rolePermissions.permission })
+      .from(s.rolePermissions)
+      .where(eq(s.rolePermissions.roleId, roleId))
+  ).map((p) => p.permission as Permission);
+  if (!permissionsWithinGrant(viewer, rolePerms)) {
+    return c.json({ error: 'You cannot grant a role with permissions you do not have yourself.' }, 403);
+  }
 
   const result = await grantRole(db(c.env), await rest(c.env), {
     userId,

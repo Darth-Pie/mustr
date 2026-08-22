@@ -11,17 +11,7 @@
  */
 
 import DOMPurify from 'dompurify';
-
-const ALLOWED_TAGS = [
-  'p', 'br', 'hr',
-  'h1', 'h2', 'h3',
-  'strong', 'b', 'em', 'i', 's', 'u', 'code', 'pre',
-  'blockquote',
-  'ul', 'ol', 'li',
-  'a',
-];
-
-const ALLOWED_ATTR = ['href', 'target', 'rel'];
+import { ALLOWED_TAGS, ALLOWED_ATTR, PAGE_ALLOWED_TAGS, PAGE_ALLOWED_ATTR } from '../../shared/htmlAllowlist';
 
 export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
@@ -42,22 +32,6 @@ export function sanitizeHtml(html: string): string {
  * Video-embed module. URLs are limited to http(s), mailto, and root-relative
  * ("/media/…") paths, so no javascript:/data: URI can ride in on href/src.
  */
-const PAGE_ALLOWED_TAGS = [
-  ...ALLOWED_TAGS,
-  'h4', 'h5', 'h6',
-  'div', 'span', 'section', 'article', 'header', 'footer', 'figure', 'figcaption',
-  'img',
-  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
-  'dl', 'dt', 'dd',
-  'sub', 'sup', 'small', 'mark', 'ins', 'del', 'abbr', 'kbd', 'samp', 'var', 'time',
-];
-
-const PAGE_ALLOWED_ATTR = [
-  'href', 'target', 'rel',
-  'src', 'alt', 'title', 'width', 'height', 'loading', 'decoding',
-  'class', 'colspan', 'rowspan', 'span', 'datetime',
-];
-
 export function sanitizePageHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: PAGE_ALLOWED_TAGS,

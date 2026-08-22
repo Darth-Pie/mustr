@@ -12,21 +12,11 @@
  * half-rendered — a static page can't have a live roster on it.
  */
 
+import { sanitizeTextHtml, sanitizePageHtmlServer } from './htmlSanitize';
+
 /** Escape text destined for HTML. */
 export function escapeHtml(v: string): string {
   return v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-/**
- * Strip anything executable from admin-authored rich text. It is already
- * sanitized on save and again by the React renderer; this is defense in depth
- * for the paths that emit raw HTML with no client-side pass.
- */
-export function stripExecutable(html: string): string {
-  return html
-    .replace(/<\s*(script|style|iframe|object|embed)[\s\S]*?<\/\s*\1\s*>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, '')
-    .replace(/javascript:/gi, '');
 }
 
 /** The loosely-typed shape we read out of the stored layout JSON. */
@@ -38,7 +28,7 @@ interface StoredLayout {
  * Render a stored layout's modules to an HTML fragment (no document wrapper, no
  * styling) so a caller can drop it into whatever page shell it owns.
  */
-export function renderLayoutBody(layout: unknown): string {
+export async function renderLayoutBody(layout: unknown): Promise<string> {
   const l = (layout ?? {}) as StoredLayout;
   let body = '';
 
@@ -49,8 +39,10 @@ export function renderLayoutBody(layout: unknown): string {
         if (m.type === 'heading') {
           const lvl = Number(cfg.level) === 1 ? 1 : Number(cfg.level) === 3 ? 3 : 2;
           body += `<h${lvl}>${escapeHtml(String(cfg.text ?? ''))}</h${lvl}>`;
-        } else if (m.type === 'text' || m.type === 'html') {
-          body += stripExecutable(String(cfg.html ?? ''));
+        } else if (m.type === 'text') {
+          body += await sanitizeTextHtml(String(cfg.html ?? ''));
+        } else if (m.type === 'html') {
+          body += await sanitizePageHtmlServer(String(cfg.html ?? ''));
         }
       }
     }

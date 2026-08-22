@@ -6,12 +6,13 @@
  */
 
 import { Hono } from 'hono';
-import { asc, eq, ne, sql } from 'drizzle-orm';
+import { asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
 import { db, requirePermission } from '../middleware/auth';
 import { discordClient } from '../config';
 import { syncRankHolders } from '../discord/sync';
+import { permissionsWithinGrant, type Permission } from '../../shared/permissions';
 import { deleteMediaByUrl } from './media';
 
 const ranks = new Hono<AppContext>();
@@ -68,6 +69,22 @@ ranks.put('/:id/roles', requirePermission('roles.manage'), async (c) => {
   if (!rank) return c.json({ error: 'No such rank' }, 404);
 
   const unique = [...new Set(roleIds)];
+
+  // A rank auto-grants these roles to everyone who holds it, including the
+  // editor — so attaching a role here is granting it, and is capped the same
+  // way: only roles whose permissions the editor already holds themselves.
+  if (unique.length) {
+    const grantedPerms = (
+      await database
+        .select({ permission: s.rolePermissions.permission })
+        .from(s.rolePermissions)
+        .where(inArray(s.rolePermissions.roleId, unique))
+    ).map((p) => p.permission as Permission);
+    if (!permissionsWithinGrant(c.get('viewer')!, grantedPerms)) {
+      return c.json({ error: 'You cannot attach a role with permissions you do not have yourself.' }, 403);
+    }
+  }
+
   await database.batch([
     database.delete(s.rankRoles).where(eq(s.rankRoles.rankId, id)),
     ...(unique.length

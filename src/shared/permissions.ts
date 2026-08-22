@@ -144,6 +144,20 @@ export function canAny(viewer: Viewer | null, ...permissions: Permission[]): boo
 }
 
 /**
+ * True if every permission in `permissions` is one the actor already holds
+ * themselves (or the actor is God). This is the ceiling on every action that
+ * hands out capability — granting a role to a member, setting a role's
+ * permission list, or attaching a role to a rank — so that a role with
+ * `roles.assign` or `roles.manage` can delegate at most what it already has,
+ * never more. Without this, "can assign roles" and "can design roles" quietly
+ * become "can become an admin".
+ */
+export function permissionsWithinGrant(actor: Viewer, permissions: Permission[]): boolean {
+  if (actor.isGod) return true;
+  return permissions.every((p) => actor.permissions.includes(p));
+}
+
+/**
  * Rank-ladder guard, kept separate from permissions on purpose.
  *
  * Even with `roster.promote`, you should not be able to promote someone above

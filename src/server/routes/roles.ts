@@ -11,7 +11,7 @@ import { asc, eq, sql } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
 import { db, requireAuth, requirePermission } from '../middleware/auth';
-import { can, isPermission, type Permission } from '../../shared/permissions';
+import { can, isPermission, permissionsWithinGrant, type Permission } from '../../shared/permissions';
 import { DiscordError } from '../discord/rest';
 import { discordClient } from '../config';
 
@@ -256,7 +256,12 @@ roles.put('/:id/permissions', requirePermission('roles.manage'), async (c) => {
   const role = await database.query.roles.findFirst({ where: eq(s.roles.id, id) });
   if (!role) return c.json({ error: 'No such role' }, 404);
 
-  const unique = [...new Set(permissions)];
+  const unique = [...new Set(permissions)] as Permission[];
+  // A role's permission ceiling is whatever the editor already holds — otherwise
+  // roles.manage alone is a path to minting an all-powerful role for yourself.
+  if (!permissionsWithinGrant(c.get('viewer')!, unique)) {
+    return c.json({ error: 'You cannot grant permissions you do not have yourself.' }, 403);
+  }
   await database.batch([
     database.delete(s.rolePermissions).where(eq(s.rolePermissions.roleId, id)),
     ...(unique.length
