@@ -152,6 +152,20 @@ export async function handleConnect(
     return { ok: false, code: 400, error: 'Malformed connect request.' };
   }
 
+  // Claim the invite FIRST, atomically — `consumedAt IS NULL` in the WHERE means
+  // only one of two concurrent redemptions can win this update; the loser gets
+  // back zero rows and bails before ever touching allianceLinks. Without this
+  // guard two racing requests could both pass the earlier unconsumed check in
+  // resolveInvite() and both mint a link off the same single-use invite.
+  const claimed = await database
+    .update(s.allianceInvites)
+    .set({ consumedAt: nowSec() })
+    .where(and(eq(s.allianceInvites.id, invite.id), isNull(s.allianceInvites.consumedAt)))
+    .returning({ id: s.allianceInvites.id });
+  if (!claimed.length) {
+    return { ok: false, code: 401, error: 'That invite was just used by someone else.' };
+  }
+
   const mine = await mintAllianceToken(); // the token THEY will use to call US
   const link = await upsertLink(database, {
     name,
@@ -162,10 +176,7 @@ export async function handleConnect(
     createdBy: invite.createdBy,
   });
 
-  await database
-    .update(s.allianceInvites)
-    .set({ consumedAt: nowSec(), consumedLinkId: link.id })
-    .where(eq(s.allianceInvites.id, invite.id));
+  await database.update(s.allianceInvites).set({ consumedLinkId: link.id }).where(eq(s.allianceInvites.id, invite.id));
 
   const cfg = await loadConfig(env, database);
   return { ok: true, response: { name: cfg.siteName || 'an allied org', inboundToken: mine.token } };

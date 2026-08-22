@@ -37,6 +37,7 @@ import {
   submitEntry,
   withdrawEntry,
 } from '../alliance/tournamentFederation';
+import { isRateLimited } from '../rateLimit';
 
 const alliance = new Hono<AppContext>();
 
@@ -57,6 +58,23 @@ function view(r: typeof s.allianceLinks.$inferSelect) {
 const now = () => Math.floor(Date.now() / 1000);
 const cleanChannel = (v: unknown) => (typeof v === 'string' && /^\d{5,25}$/.test(v) ? v : null);
 
+/**
+ * Bounds how often ONE paired ally can call the federation routes — a
+ * malicious or compromised peer otherwise has an unthrottled way to spam our
+ * Discord (via /inbound) or write-amplify our D1 (via /tournament/entry
+ * submit+withdraw loops). Keyed by the resolved link, not the token itself, so
+ * rotating the token doesn't reset the window.
+ */
+async function linkLimited(c: Context<AppContext>, linkId: number): Promise<boolean> {
+  return isRateLimited(db(c.env), `alliance-link:${linkId}`, { max: 30, windowSeconds: 60 });
+}
+
+/** Bounds pre-auth guesses against the invite-redemption endpoint, by IP. */
+async function connectLimited(c: Context<AppContext>): Promise<boolean> {
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
+  return isRateLimited(db(c.env), `alliance-connect:${ip}`, { max: 10, windowSeconds: 300 });
+}
+
 /** Resolve the alliance link behind an inbound Bearer token (the ally calling us). */
 async function inboundLink(c: Context<AppContext>) {
   const authz = c.req.header('authorization') ?? '';
@@ -73,6 +91,7 @@ alliance.post('/inbound', async (c) => {
   const token = /^bearer /i.test(authz) ? authz.slice(7).trim() : '';
   const link = await resolveInboundLink(db(c.env), token);
   if (!link) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  if (await linkLimited(c, link.id)) return c.json({ ok: false, error: 'rate limited' }, 429);
 
   let payload: unknown;
   try {
@@ -140,6 +159,7 @@ alliance.delete('/invites/:id', requirePermission('alliance.manage'), async (c) 
 alliance.post('/connect', async (c) => {
   const authz = c.req.header('authorization') ?? '';
   const token = /^bearer /i.test(authz) ? authz.slice(7).trim() : '';
+  if (await connectLimited(c)) return c.json({ ok: false, error: 'Too many attempts. Try again later.' }, 429);
   const invite = await resolveInvite(db(c.env), token);
   if (!invite) return c.json({ ok: false, error: 'That invite is invalid, used, or expired.' }, 401);
   const payload = await c.req.json().catch(() => ({}));
@@ -261,6 +281,7 @@ alliance.post('/test', requirePermission('alliance.manage'), async (c) => {
 alliance.post('/tournament/offer', async (c) => {
   const link = await inboundLink(c);
   if (!link) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  if (await linkLimited(c, link.id)) return c.json({ ok: false, error: 'rate limited' }, 429);
   const offer = sanitizeTournamentOffer(await c.req.json().catch(() => null));
   if (!offer) return c.json({ ok: false, error: 'invalid offer' }, 422);
   await applyOffer(db(c.env), link, offer).catch(() => {});
@@ -272,6 +293,7 @@ alliance.post('/tournament/offer', async (c) => {
 alliance.post('/tournament/update', async (c) => {
   const link = await inboundLink(c);
   if (!link) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  if (await linkLimited(c, link.id)) return c.json({ ok: false, error: 'rate limited' }, 429);
   const update = sanitizeTournamentUpdate(await c.req.json().catch(() => null));
   if (!update) return c.json({ ok: false, error: 'invalid update' }, 422);
   await applyUpdate(db(c.env), link, update).catch(() => {});
@@ -282,6 +304,7 @@ alliance.post('/tournament/update', async (c) => {
 alliance.post('/tournament/entry', async (c) => {
   const link = await inboundLink(c);
   if (!link) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  if (await linkLimited(c, link.id)) return c.json({ ok: false, error: 'rate limited' }, 429);
   const entry = sanitizeTournamentEntry(await c.req.json().catch(() => null));
   if (!entry) return c.json({ ok: false, error: 'invalid entry' }, 422);
   const res = await handleRemoteEntry(db(c.env), link, entry);

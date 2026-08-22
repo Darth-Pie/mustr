@@ -23,6 +23,7 @@ import { eq, desc } from 'drizzle-orm';
 import type { AppContext } from '../env';
 import * as s from '../../db/schema';
 import { db } from '../middleware/auth';
+import { isRateLimited } from '../rateLimit';
 import {
   loadConfig,
   mergeStoredIdentity,
@@ -129,6 +130,16 @@ setup.post('/unlock', requireUnclaimed, async (c) => {
       400,
     );
   }
+  // A freshly-deployed-but-unclaimed instance is reachable by anyone who finds
+  // its URL, and the token is buyer-chosen (so its strength isn't guaranteed) —
+  // this bounds how many guesses an attacker gets before the site owner claims
+  // it. Keyed by IP; checked before comparing so a flood doesn't even reach the
+  // (already constant-time) comparison.
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
+  if (await isRateLimited(db(c.env), `setup-unlock:${ip}`, { max: 8, windowSeconds: 300 })) {
+    return c.json({ error: 'Too many attempts. Try again in a few minutes.' }, 429);
+  }
+
   const body = (await c.req.json<{ token?: string }>().catch(() => ({}))) as { token?: string };
   const token = typeof body.token === 'string' ? body.token : '';
   if (!token || !timingSafeEqual(token, c.env.SETUP_TOKEN)) {

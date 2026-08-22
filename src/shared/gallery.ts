@@ -148,9 +148,15 @@ export function cleanDimension(raw: unknown, fallback: number): number {
   return Number.isFinite(n) && n > 0 && n <= MAX_DIMENSION ? n : fallback;
 }
 
-/** True for a URL we're willing to store as image media: one of our own objects. */
+/**
+ * True for a URL we're willing to store as gallery image media: one of our own
+ * gallery-category objects. Scoped to `/media/gallery/` specifically (not any
+ * `/media/*` path) so a gallery item can never be pointed at another category's
+ * object — e.g. a member's avatar — which would let deleting/replacing the item
+ * later destroy media that isn't the gallery's to own.
+ */
 export function isOwnMediaUrl(v: unknown): v is string {
-  return typeof v === 'string' && v.startsWith('/media/') && !v.startsWith('/media//');
+  return typeof v === 'string' && v.startsWith('/media/gallery/') && v.length > '/media/gallery/'.length;
 }
 
 export interface AlbumInput {

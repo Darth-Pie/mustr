@@ -1218,3 +1218,20 @@ export const allianceTournamentEntries = sqliteTable(
     uniqueIndex('alliance_tournament_entries_entry_idx').on(t.allianceTournamentId, t.entryId),
   ],
 );
+
+/* ------------------------------------------------------------------ *
+ * Rate limiting — a tiny fixed-window counter for the handful of routes that
+ * are reachable without an existing session/permission (the setup-token
+ * unlock, and the public alliance-federation endpoints authed only by a
+ * bearer token). Deliberately its own D1 table rather than KV: every
+ * deployment already has D1 bound, so this needs no extra resource for a
+ * buyer to provision through the Deploy-to-Cloudflare flow. See
+ * server/rateLimit.ts. Excluded from snapshot backup/restore on purpose (an
+ * operational artifact, not site content) — just never added to TABLES there.
+ * ------------------------------------------------------------------ */
+export const rateLimitHits = sqliteTable('rate_limit_hits', {
+  // e.g. "setup-unlock:<ip>" or "alliance-inbound:<linkId>" — see rateLimit.ts.
+  key: text('key').primaryKey(),
+  windowStart: integer('window_start').notNull(),
+  count: integer('count').notNull().default(1),
+});

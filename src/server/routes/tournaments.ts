@@ -12,7 +12,7 @@ import { Hono, type Context } from 'hono';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
-import { db, requireAuth, requireUser, requirePermission } from '../middleware/auth';
+import { db, requireAuth, requirePermission } from '../middleware/auth';
 import { memberName } from '../../shared/names';
 import { announceTournament } from '../discord/tournaments';
 import { fanOutTournamentOffer, broadcastTournamentUpdate } from '../alliance/tournamentFederation';
@@ -113,8 +113,13 @@ tournaments.put('/settings/config', requirePermission('tournaments.manage'), asy
  * use it (captains need it, and they may lack roster.view). Returns just enough
  * to pick someone: id, resolved name, avatar. Registered before /:key so the
  * two-segment path is never captured as a slug.
+ *
+ * requireAuth, not requireUser: a *full* member is the documented bar, and
+ * requireUser alone would also admit a pending applicant who hasn't been
+ * approved yet — this route has no per-target ownership check to fall back on,
+ * so the gate itself has to keep applicants out.
  */
-tournaments.get('/members/search', requireUser, async (c) => {
+tournaments.get('/members/search', requireAuth, async (c) => {
   const q = (c.req.query('q') ?? '').trim().toLowerCase().slice(0, 40);
   const rows = await db(c.env)
     .select({

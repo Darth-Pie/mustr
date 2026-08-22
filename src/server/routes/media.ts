@@ -91,7 +91,16 @@ media.post('/:category', requireUser, async (c) => {
     return c.json({ error: `Image is too large (max ${Math.round(limit / 1_000_000)} MB).` }, 413);
   }
 
-  const key = `${conf.prefix}/${crypto.randomUUID()}.${ext}`;
+  // Avatars are namespaced under the uploader's own id — the one self-service,
+  // per-member category, and the one whose URL an admin's roster.edit lets a
+  // caller attach to *someone else's* profile. Embedding the uploader here lets
+  // PATCH /members/:id/profile check "did the person making THIS request
+  // actually upload this file" without a separate ownership table — see the
+  // matching check there for why that closes a cross-user delete.
+  const key =
+    c.req.param('category') === 'avatars'
+      ? `${conf.prefix}/${viewer.id}/${crypto.randomUUID()}.${ext}`
+      : `${conf.prefix}/${crypto.randomUUID()}.${ext}`;
   await c.env.MEDIA.put(key, await file.arrayBuffer(), {
     httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' },
   });

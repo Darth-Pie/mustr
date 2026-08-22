@@ -232,6 +232,13 @@
       "when": 1787428882639,
       "tag": "0032_stormy_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1787441473022,
+      "tag": "0033_flashy_harrier",
+      "breakpoints": true
     }
   ]
 }

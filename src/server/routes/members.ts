@@ -316,10 +316,14 @@ members.patch('/:id/profile', requireUser, async (c) => {
   let profileImageUrl = target.profileImageUrl;
   if (body.profileImageUrl !== undefined) {
     const next = body.profileImageUrl?.trim() || null;
-    // Only accept a cleared value or one of our own uploaded avatar URLs — never
-    // an arbitrary off-site URL, which would let this field point <img> tags at
-    // anything and bypass the raster-only upload guard.
-    if (next !== null && !next.startsWith('/media/avatars/')) {
+    // Only accept a cleared value or an avatar THIS caller uploaded — never an
+    // arbitrary off-site URL (bypasses the raster-only upload guard) and never
+    // another member's avatar URL copied off their profile. Avatar keys are
+    // namespaced by uploader id (see media.ts), so this also guarantees that
+    // whatever ends up in target.profileImageUrl was always legitimately
+    // uploaded for exactly this purpose — which is what makes it safe to
+    // unconditionally delete-on-replace below without a cross-user deletion risk.
+    if (next !== null && !next.startsWith(`/media/avatars/${viewer.id}/`)) {
       return c.json({ error: 'Invalid profile image.' }, 400);
     }
     if (next !== target.profileImageUrl) {
