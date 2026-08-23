@@ -42,7 +42,7 @@ function useVisibility(publicSlugs?: Set<string>) {
       // A destination belonging to an optional module disappears with it, so
       // turning the module off can't leave a link to a route that now 404s.
       if (b.module && !modules[b.module]) return false;
-      // Some built-ins (e.g. About) are reachable by anyone — always shown.
+      // Some built-ins (e.g. Gallery) are reachable by anyone — always shown.
       if (b.public) return true;
       // A logged-out visitor sees other built-ins only when the destination is
       // public (publicSlugs carries the built-in keys — 'home', 'news', … — that opted in).

@@ -31,11 +31,13 @@ export interface BuiltinTarget {
   /** True → gated on "can reach any admin tool" rather than a single permission. */
   admin?: boolean;
   /**
-   * True → this path is served by the Worker directly (e.g. /about), not an SPA
+   * True → this path is served by the Worker directly (e.g. /legal), not an SPA
    * route, so its nav link must be a full-page navigation, not a client <Link>.
+   * No built-in needs this today — the same handling also covers free-form URL
+   * links an admin points at a Worker-served path (see isServerServedPath).
    */
   serverRoute?: boolean;
-  /** True → reachable by anyone, including logged-out visitors (e.g. the About page). */
+  /** True → reachable by anyone, including logged-out visitors (e.g. the Gallery). */
   public?: boolean;
   /**
    * Names an optional module this destination belongs to. The entry is hidden
@@ -63,7 +65,6 @@ export const BUILTIN_TARGETS: Record<string, BuiltinTarget> = {
   // what a given viewer actually gets. The link is additionally hidden when the
   // gallery module is off — see SiteNav, which gates on the module flag.
   gallery: { key: 'gallery', path: '/gallery', label: 'Gallery', public: true, module: 'gallery' },
-  about: { key: 'about', path: '/about', label: 'About', serverRoute: true, public: true },
   admin: { key: 'admin', path: '/admin', label: 'Admin', admin: true },
 };
 
