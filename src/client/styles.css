@@ -7508,7 +7508,12 @@ a.button.primary { background: var(--color-accent); color: var(--color-accent-te
   animation: brandmark-in .3s ease both;
 }
 .brandmark-splash.closing { animation: brandmark-out .6s ease forwards; pointer-events: none; }
-.brandmark-splash .splash-mark { width: min(52vmin, 340px); height: min(52vmin, 340px); }
+/* The mark should own the screen for its one moment — 340px read as small and
+   lost on a desktop viewport. Keep a vmin cap so it still fits on phones. */
+.brandmark-splash .splash-mark { width: min(66vmin, 520px); height: min(66vmin, 520px); }
+/* Boot-time placeholder: occupies the loader's space without painting text
+   that the splash is about to cover. See SigilLoader. */
+.loading.loading-quiet { visibility: hidden; }
 @keyframes brandmark-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes brandmark-out { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .brandmark-splash { animation-duration: .01ms; } }

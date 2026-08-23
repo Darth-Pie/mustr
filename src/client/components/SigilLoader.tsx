@@ -10,7 +10,14 @@ import SigilEmblem from './SigilEmblem';
 
 export default function SigilLoader({ label = 'Loading…' }: { label?: string }) {
   const { sigil, loaded } = useSigil();
-  if (!loaded || !sigil.enabled) return <div className="loading">{label}</div>;
+  // Config still in flight (boot). Hold the space but stay invisible: on a site
+  // with a boot splash the sigil config and the session arrive a beat apart, so
+  // painting "Loading…" here flashes text for ~200ms and is then covered by the
+  // splash — which reads as a janky triple-flash (text → sigil → page) rather
+  // than one deliberate intro. After boot `loaded` is true, so every later
+  // loading state still shows its label normally.
+  if (!loaded) return <div className="loading loading-quiet">{label}</div>;
+  if (!sigil.enabled) return <div className="loading">{label}</div>;
   return (
     <div className="sigil-loader" role="status" aria-live="polite">
       <div className="sigil-loader-mark">
