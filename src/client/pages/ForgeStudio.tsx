@@ -20,6 +20,8 @@ import {
   SIGIL_POSITIONS,
   SIGIL_STYLES,
   SIGIL_SWATCHES,
+  SIGIL_HOLD_MIN,
+  SIGIL_HOLD_MAX,
   encodeRecipe,
   isShareable,
   sanitizeRecipe,
@@ -42,6 +44,7 @@ export default function ForgeStudio() {
   const { sigil, save } = useSigil();
   const [recipe, setRecipe] = useState<SigilRecipe>(sigil.recipe);
   const [enabled, setEnabled] = useState(sigil.enabled);
+  const [holdSeconds, setHoldSeconds] = useState(sigil.holdSeconds);
   const [playKey, setPlayKey] = useState(0);
   const [loop, setLoop] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -123,7 +126,7 @@ export default function ForgeStudio() {
         artError = e instanceof Error ? e.message : String(e);
         console.error('Sigil static art failed to render/upload:', e);
       }
-      await save({ enabled, recipe, pngUrl });
+      await save({ enabled, recipe, pngUrl, holdSeconds });
       const base = enabled
         ? 'Saved. Your sigil now plays once when a visitor loads the site.'
         : 'Saved. Turn on “Play on site load” to show it as your boot splash — it is also what enables the Discord embed crest.';
@@ -209,6 +212,24 @@ export default function ForgeStudio() {
             <span>Play on site load</span>
             <input type="checkbox" checked={enabled} onChange={(e) => { setEnabled(e.target.checked); setMsg(null); }} />
           </label>
+
+          {enabled && (
+            <label className="range-row">
+              <span>Hold on screen <b>{holdSeconds.toFixed(1)}s</b></span>
+              <input
+                type="range"
+                min={SIGIL_HOLD_MIN}
+                max={SIGIL_HOLD_MAX}
+                step={0.1}
+                value={holdSeconds}
+                onChange={(e) => { setHoldSeconds(Number(e.target.value)); setMsg(null); }}
+              />
+              <span className="muted small">
+                How long the finished mark rests before the splash fades out. The Speed slider
+                controls how fast it animates; this is the pause afterwards.
+              </span>
+            </label>
+          )}
 
           <div className="forge-share">
             <span className="field-label">Share link <span className="muted small">— no account needed, nothing stored</span></span>

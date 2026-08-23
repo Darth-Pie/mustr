@@ -13,6 +13,7 @@ import { useBrandmark } from '../lib/brandmark';
 import { useSigil } from '../lib/sigil';
 import { useBranding } from '../lib/branding';
 import { brandmarkToRecipe } from '../../shared/brandmark';
+import { SIGIL_HOLD_DEFAULT } from '../../shared/sigil';
 import SigilStage from './SigilStage';
 
 const SESSION_KEY = 'mustr:brandmark:shown';
@@ -49,6 +50,7 @@ export default function BrandmarkSplash() {
   // image Brandmark path.
   const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
   const recipe = useSigilRecipe ? sigil.recipe : brandmarkToRecipe(brandmark, bmSrc, themeAccent);
+  const holdMs = (useSigilRecipe ? sigil.holdSeconds : SIGIL_HOLD_DEFAULT) * 1000;
 
   return (
     <div
@@ -56,10 +58,15 @@ export default function BrandmarkSplash() {
       role="presentation"
       onClick={close}
     >
-      {/* Let the finished mark sit for a beat before dismissing — the animation
-          resolving and the screen clearing on top of each other is what makes
-          the intro feel rushed. */}
-      <SigilStage recipe={recipe} className="splash-mark" onDone={() => window.setTimeout(close, 1900)} />
+      {/* Let the finished mark sit before dismissing — the animation resolving
+          and the screen clearing on top of each other is what makes the intro
+          feel rushed. Admin-tunable via Sigil Forge; the legacy image Brandmark
+          path has no setting of its own, so it takes the default. */}
+      <SigilStage
+        recipe={recipe}
+        className="splash-mark"
+        onDone={() => window.setTimeout(close, holdMs)}
+      />
     </div>
   );
 }

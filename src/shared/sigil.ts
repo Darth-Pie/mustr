@@ -178,13 +178,37 @@ export interface SiteSigil {
    *  static art (Discord embeds, OG images) where a raster URL is required.
    *  Blank until first saved, or when rasterization failed. */
   pngUrl: string;
+  /** How long the finished mark rests on screen before the splash fades out,
+   *  in seconds. Distinct from `recipe.speed`, which governs how fast the
+   *  animation itself plays — this is the pause after it resolves, and it's the
+   *  knob that decides whether the intro feels rushed. Splash-only, so it stays
+   *  out of SigilRecipe and never rides in a share link. */
+  holdSeconds: number;
 }
 
-export const DEFAULT_SITE_SIGIL: SiteSigil = { enabled: false, recipe: DEFAULT_RECIPE, pngUrl: '' };
+export const SIGIL_HOLD_MIN = 0.5;
+export const SIGIL_HOLD_MAX = 8;
+export const SIGIL_HOLD_DEFAULT = 1.9;
+
+export const DEFAULT_SITE_SIGIL: SiteSigil = {
+  enabled: false,
+  recipe: DEFAULT_RECIPE,
+  pngUrl: '',
+  holdSeconds: SIGIL_HOLD_DEFAULT,
+};
 
 export function sanitizeSiteSigil(raw: unknown): SiteSigil {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  return { enabled: r.enabled === true, recipe: sanitizeRecipe(r.recipe), pngUrl: cleanUrl(r.pngUrl) };
+  const hold = Number(r.holdSeconds);
+  return {
+    enabled: r.enabled === true,
+    recipe: sanitizeRecipe(r.recipe),
+    pngUrl: cleanUrl(r.pngUrl),
+    // Absent on rows saved before this existed — fall back, don't zero it out.
+    holdSeconds: Number.isFinite(hold)
+      ? Math.min(SIGIL_HOLD_MAX, Math.max(SIGIL_HOLD_MIN, hold))
+      : SIGIL_HOLD_DEFAULT,
+  };
 }
 
 /* ------------------------------------------------------------------ *
