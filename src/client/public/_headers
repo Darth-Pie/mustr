@@ -8,8 +8,15 @@
 # can't run inline script. frame-src is the ONLY place third-party frames are
 # allowed, and it lists exactly the video-embed origins from shared/embeds.ts —
 # keep the two in sync when adding a provider.
+#
+# script-src also allowlists Cloudflare's own Web Analytics beacon
+# (static.cloudflareinsights.com) — harmless to add (it's Cloudflare's own
+# infrastructure, not third-party) and without it the beacon script is silently
+# blocked, so enabling Web Analytics on the zone does nothing. Its reported data
+# goes to /cdn-cgi/rum on this same origin (a Workers custom domain is proxied
+# through Cloudflare), which connect-src 'self' already covers.
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self' https:; frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://clips.twitch.tv https://player.vimeo.com https://streamable.com https://docs.google.com
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self' https:; frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://clips.twitch.tv https://player.vimeo.com https://streamable.com https://docs.google.com
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
