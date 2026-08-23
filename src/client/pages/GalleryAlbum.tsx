@@ -33,7 +33,7 @@ import 'yet-another-react-lightbox/plugins/captions.css';
 import 'yet-another-react-lightbox/plugins/counter.css';
 import { api, ApiError } from '../lib/api';
 import { useSession } from '../lib/session';
-import { isAllowedEmbedSrc } from '../../shared/embeds';
+import { embedSrcForPage, isAllowedEmbedSrc } from '../../shared/embeds';
 import {
   audienceLabel,
   itemThumb,
@@ -198,7 +198,7 @@ export default function GalleryAlbumPage() {
             slide.type === 'embed' && isAllowedEmbedSrc(slide.src) ? (
               <div className="gallery-lightbox-embed">
                 <iframe
-                  src={slide.src}
+                  src={embedSrcForPage(slide.src)}
                   title={slide.title ?? 'Video'}
                   allowFullScreen
                   sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"

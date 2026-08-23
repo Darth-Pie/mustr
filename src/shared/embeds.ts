@@ -15,11 +15,16 @@
  */
 
 /**
- * The page hosts Twitch will accept as the embedding parent. Twitch refuses to
- * load its player unless the embedder's hostname is declared here, and it allows
- * several. Production + localhost (for dev) cover our cases.
+ * Fallback embedding-parent hosts for Twitch, used only when no real hostname is
+ * available (a sanitiser pass outside a browser).
+ *
+ * Twitch refuses to load its player unless the embedding page's hostname is
+ * declared in a `parent` param, and it matches EXACTLY — an apex entry does not
+ * cover its subdomains. A fixed list therefore can't serve a product that ships
+ * to any domain (and 'mustr.gg' never covered app.mustr.gg), so the real parent
+ * is stamped on at render time from the page's own hostname. See embedSrcForPage.
  */
-export const EMBED_PARENTS = ['mustr.gg', 'localhost'];
+export const EMBED_PARENTS = ['mustr.gg', 'app.mustr.gg', 'localhost'];
 
 /**
  * Every origin an embed iframe can load from. This list is the single source of
@@ -70,10 +75,6 @@ function host(u: URL): string {
   return u.hostname.replace(/^www\./i, '').toLowerCase();
 }
 
-function twitchParents(): string {
-  return EMBED_PARENTS.map((p) => `parent=${encodeURIComponent(p)}`).join('&');
-}
-
 function youtube(u: URL): string | null {
   const h = host(u);
   const id = (() => {
@@ -92,34 +93,33 @@ function youtube(u: URL): string | null {
 
 function twitch(u: URL): string | null {
   const h = host(u);
-  const parents = twitchParents();
 
   if (h === 'clips.twitch.tv') {
     const slug = u.pathname.slice(1).split('/')[0] ?? '';
     return /^[A-Za-z0-9_-]{1,120}$/.test(slug)
-      ? `https://clips.twitch.tv/embed?clip=${encodeURIComponent(slug)}&${parents}`
+      ? `https://clips.twitch.tv/embed?clip=${encodeURIComponent(slug)}`
       : null;
   }
 
   if (h === 'twitch.tv' || h === 'm.twitch.tv' || h === 'player.twitch.tv') {
     const vid = u.pathname.match(/^\/videos\/(\d{1,20})/);
-    if (vid) return `https://player.twitch.tv/?video=${vid[1]}&${parents}`;
+    if (vid) return `https://player.twitch.tv/?video=${vid[1]}`;
 
     const clip = u.pathname.match(/^\/[A-Za-z0-9_]{1,40}\/clip\/([A-Za-z0-9_-]{1,120})/);
-    if (clip) return `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip[1]!)}&${parents}`;
+    if (clip) return `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip[1]!)}`;
 
     const qVideo = u.searchParams.get('video');
-    if (qVideo && /^\d{1,20}$/.test(qVideo)) return `https://player.twitch.tv/?video=${qVideo}&${parents}`;
+    if (qVideo && /^\d{1,20}$/.test(qVideo)) return `https://player.twitch.tv/?video=${qVideo}`;
 
     const qChannel = u.searchParams.get('channel');
     if (qChannel && /^[A-Za-z0-9_]{1,40}$/.test(qChannel))
-      return `https://player.twitch.tv/?channel=${encodeURIComponent(qChannel)}&${parents}`;
+      return `https://player.twitch.tv/?channel=${encodeURIComponent(qChannel)}`;
 
     // A bare /<channel> path — but not Twitch's own non-channel sections.
     const ch = u.pathname.match(/^\/([A-Za-z0-9_]{1,40})\/?$/);
     const reserved = ['videos', 'directory', 'settings', 'downloads', 'subscriptions', 'p', 'jobs', 'turbo'];
     if (ch && !reserved.includes(ch[1]!.toLowerCase()))
-      return `https://player.twitch.tv/?channel=${ch[1]}&${parents}`;
+      return `https://player.twitch.tv/?channel=${ch[1]}`;
 
     return null;
   }
@@ -164,4 +164,38 @@ export function resolveEmbed(raw: string): ResolvedEmbed | null {
 /** Belt-and-suspenders: is this string an embed URL on a known origin? */
 export function isAllowedEmbedSrc(src: unknown): src is string {
   return typeof src === 'string' && EMBED_FRAME_ORIGINS.some((o) => src.startsWith(`${o}/`));
+}
+
+/** The two Twitch origins whose player demands a `parent` for the embedding page. */
+const TWITCH_ORIGINS = ['https://player.twitch.tv', 'https://clips.twitch.tv'];
+
+/**
+ * Stamp the Twitch `parent` param onto an embed src for the page that is about
+ * to frame it.
+ *
+ * Twitch matches the parent host exactly, so it can only be decided by the
+ * browser doing the rendering — never baked into the stored src, which would
+ * freeze one hostname into the database and break the moment an install moves
+ * domain (or, as happened here, the app moves to a subdomain). Any `parent`
+ * already on the URL is dropped first, so rows written by an older build heal
+ * themselves on the next render without a migration.
+ *
+ * Only Twitch needs this; YouTube, Vimeo and Streamable pass through untouched.
+ * The origin is never rebuilt, so this can't widen what an iframe may load.
+ */
+export function embedSrcForPage(src: string, hostname?: string): string {
+  if (!isAllowedEmbedSrc(src)) return src;
+  if (!TWITCH_ORIGINS.some((o) => src.startsWith(`${o}/`))) return src;
+
+  let u: URL;
+  try {
+    u = new URL(src);
+  } catch {
+    return src;
+  }
+
+  const here = hostname ?? (typeof location === 'undefined' ? '' : location.hostname);
+  u.searchParams.delete('parent');
+  for (const parent of here ? [here] : EMBED_PARENTS) u.searchParams.append('parent', parent);
+  return u.toString();
 }

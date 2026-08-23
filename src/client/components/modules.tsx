@@ -17,7 +17,7 @@ import { sanitizeHtml, sanitizePageHtml, excerptFromHtml } from '../lib/richtext
 import { isServerServedPath } from '../../shared/nav';
 import { memberName } from '../../shared/names';
 import { memberAvatar } from '../../shared/avatar';
-import { isAllowedEmbedSrc } from '../../shared/embeds';
+import { embedSrcForPage, isAllowedEmbedSrc } from '../../shared/embeds';
 import { isAllowedSlidesSrc } from '../../shared/trainingEmbed';
 import type { ModuleType } from '../../shared/layout';
 
@@ -188,7 +188,7 @@ function EmbedModule({ config }: { config: Config }) {
   return (
     <div className="module module-embed" data-ratio={ratio}>
       <iframe
-        src={src}
+        src={embedSrcForPage(src)}
         title={title}
         loading="lazy"
         allowFullScreen
@@ -455,7 +455,7 @@ function youtubePoster(src: string | undefined): string | null {
 function EmbedFrame({ src, title }: { src: string; title: string }) {
   return (
     <iframe
-      src={src}
+      src={embedSrcForPage(src)}
       title={title}
       loading="lazy"
       allowFullScreen
