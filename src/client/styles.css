@@ -7,6 +7,12 @@
   box-sizing: border-box;
 }
 
+/* Icons (rendered as inline <svg> by morphicons) default to baseline like text,
+   which sits a couple px high next to a text label — nudge down to match. */
+svg {
+  vertical-align: -0.125em;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);
@@ -281,6 +287,8 @@ select {
 }
 
 .god-chip {
+  display: inline-flex;
+  align-items: center;
   color: var(--color-accent);
 }
 
@@ -2169,9 +2177,19 @@ a.admin-crumb:hover {
 }
 
 .tag.pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--color-accent);
   border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.pin-dot {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-accent);
+  margin-right: 0.25rem;
 }
 
 /* Feed */
@@ -3716,8 +3734,12 @@ button.mini {
 }
 
 .module-gallery-icon {
-  font-size: 2rem;
-  line-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: var(--color-muted);
 }
 
 .module-gallery-name {
@@ -3955,6 +3977,9 @@ a.org-box:hover {
   right: 2px;
   width: 18px;
   height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
   padding: 0;
   border: 0;
@@ -4405,6 +4430,9 @@ a.org-box:hover {
 .lightbox-close,
 .lightbox-nav {
   position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   border: 0;

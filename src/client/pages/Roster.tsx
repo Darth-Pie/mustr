@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { ChevronUp, ChevronDown } from 'lucide';
 import { api } from '../lib/api';
 import MorphingSegments from '../components/MorphingSegments';
 import { useSession } from '../lib/session';
@@ -128,7 +130,8 @@ function MemberList() {
     }
   }
 
-  const arrow = (field: SortField) => (sort === field ? (dir === 'asc' ? ' ▲' : ' ▼') : '');
+  const arrow = (field: SortField) =>
+    sort === field ? <MorphIcon icon={dir === 'asc' ? ChevronUp : ChevronDown} size={13} aria-hidden /> : null;
   const hasMore = members.length < total;
 
   return (
@@ -136,10 +139,10 @@ function MemberList() {
       <div className="roster-sort">
         <span className="muted small">Sort:</span>
         <button type="button" className={sort === 'name' ? 'seg active' : 'seg'} onClick={() => sortBy('name')}>
-          Name{arrow('name')}
+          Name {arrow('name')}
         </button>
         <button type="button" className={sort === 'rank' ? 'seg active' : 'seg'} onClick={() => sortBy('rank')}>
-          Rank{arrow('rank')}
+          Rank {arrow('rank')}
         </button>
         <span className="muted small roster-count">
           {hasMore ? `${members.length} of ${total}` : total} member{total === 1 ? '' : 's'}

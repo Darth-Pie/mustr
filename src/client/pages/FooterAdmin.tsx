@@ -7,6 +7,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { X } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import type { FooterConfig, FooterLink } from '../../shared/footer';
@@ -91,7 +93,7 @@ export default function FooterAdmin() {
               onChange={(e) => setLink(i, { href: e.target.value })}
             />
             <button type="button" className="mini danger" title="Remove link" disabled={busy} onClick={() => removeLink(i)}>
-              ✕
+              <MorphIcon icon={X} size={13} aria-hidden />
             </button>
           </div>
         ))}

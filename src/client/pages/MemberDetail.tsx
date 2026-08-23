@@ -8,6 +8,8 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { X, Medal as MedalIcon, Trophy, ChevronUp, ChevronDown } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import { useSession } from '../lib/session';
@@ -359,7 +361,7 @@ export default function MemberDetail() {
                     title={nextUp ? `Promote to ${nextUp.name}` : 'Already at the top rank'}
                     onClick={() => nextUp && void setRank(nextUp.id, `Promoted to ${nextUp.name}`)}
                   >
-                    ▲ Promote
+                    <MorphIcon icon={ChevronUp} size={13} aria-hidden /> Promote
                   </button>
                   <button
                     disabled={busy || !nextDown}
@@ -371,7 +373,7 @@ export default function MemberDetail() {
                       )
                     }
                   >
-                    ▼ Demote
+                    <MorphIcon icon={ChevronDown} size={13} aria-hidden /> Demote
                   </button>
                 </span>
               ) : (
@@ -440,7 +442,7 @@ export default function MemberDetail() {
                       )
                     }
                   >
-                    ✕
+                    <MorphIcon icon={X} size={11} aria-hidden />
                   </button>
                 </span>
               ))}
@@ -522,7 +524,9 @@ export default function MemberDetail() {
                     {m.imageUrl ? (
                       <img src={m.imageUrl} alt="" width={28} height={28} />
                     ) : (
-                      <span className="medal-thumb-empty small">★</span>
+                      <span className="medal-thumb-empty small">
+                        <MorphIcon icon={MedalIcon} size={16} aria-hidden />
+                      </span>
                     )}
                     <span className="medal-label">
                       {m.name}
@@ -540,7 +544,7 @@ export default function MemberDetail() {
                           )
                         }
                       >
-                        ✕
+                        <MorphIcon icon={X} size={11} aria-hidden />
                       </button>
                     )}
                   </li>
@@ -571,7 +575,9 @@ export default function MemberDetail() {
                     {w.imageUrl ? (
                       <img src={w.imageUrl} alt="" width={28} height={28} />
                     ) : (
-                      <span className="medal-thumb-empty small">🏆</span>
+                      <span className="medal-thumb-empty small">
+                        <MorphIcon icon={Trophy} size={16} aria-hidden />
+                      </span>
                     )}
                     <span className="medal-label">
                       {w.name}
@@ -589,7 +595,7 @@ export default function MemberDetail() {
                           )
                         }
                       >
-                        ✕
+                        <MorphIcon icon={X} size={11} aria-hidden />
                       </button>
                     )}
                   </li>

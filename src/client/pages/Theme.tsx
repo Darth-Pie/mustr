@@ -9,6 +9,8 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { X } from 'lucide';
 import { useTheme, DEFAULT_THEME, type ThemeTokens } from '../lib/theme';
 import { useAction, Alerts } from '../lib/action';
 import { api } from '../lib/api';
@@ -490,7 +492,7 @@ export default function Theme() {
                         {t.name}
                       </button>
                       <button className="mini danger" title={`Delete “${t.name}”`} disabled={busy} onClick={() => void deleteTheme(t.id)}>
-                        ✕
+                        <MorphIcon icon={X} size={13} aria-hidden />
                       </button>
                     </li>
                   );

@@ -8,6 +8,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { X } from 'lucide';
 import { api } from '../lib/api';
 import { memberName } from '../../shared/names';
 import { sanitizeOrgChart, type OrgChart } from '../../shared/orgchart';
@@ -264,7 +266,7 @@ export default function OrgChartDesigner() {
                           removeNode(n.memberId);
                         }}
                       >
-                        ✕
+                        <MorphIcon icon={X} size={10} aria-hidden />
                       </button>
                     )}
                   </>

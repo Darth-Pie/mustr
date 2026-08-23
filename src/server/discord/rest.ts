@@ -32,6 +32,15 @@ export interface TextChannel {
   position: number;
 }
 
+/** Any guild channel, for the channel-visibility picker — categories included. */
+export interface GuildChannel {
+  id: string;
+  name: string;
+  type: number;
+  position: number;
+  parentId: string | null;
+}
+
 /** An EXTERNAL guild scheduled event (entity_type 3). */
 export interface ScheduledEventInput {
   name: string;
@@ -197,6 +206,52 @@ export class DiscordRest {
       .filter((c) => c.type === 0 || c.type === 5)
       .map((c) => ({ id: c.id, name: c.name, position: c.position }))
       .sort((a, b) => a.position - b.position);
+  }
+
+  /** Every channel in the guild (any type — text, voice, category, forum…), for the channel-visibility picker. */
+  async listAllChannels(): Promise<GuildChannel[]> {
+    const res = await this.call(`/guilds/${this.guildId}/channels`);
+    if (!res.ok) throw new DiscordError('listAllChannels', res.status, await res.text());
+    const channels = (await res.json()) as {
+      id: string;
+      name: string;
+      type: number;
+      position: number;
+      parent_id: string | null;
+    }[];
+    return channels
+      .map((c) => ({ id: c.id, name: c.name, type: c.type, position: c.position, parentId: c.parent_id }))
+      .sort((a, b) => a.position - b.position);
+  }
+
+  /**
+   * Grants (or updates) a role's permission overwrite on a channel. Used only to
+   * ADD an allow-overwrite — never touches @everyone or any other role/member's
+   * overwrite. Needs the bot's MANAGE_ROLES permission and VIEW_CHANNEL access
+   * to the channel itself.
+   */
+  async setChannelRoleOverwrite(
+    channelId: string,
+    roleId: string,
+    perms: { allow: string; deny: string },
+    reason?: string,
+  ): Promise<void> {
+    const res = await this.call(
+      `/channels/${channelId}/permissions/${roleId}`,
+      { method: 'PUT', body: JSON.stringify({ type: 0, allow: perms.allow, deny: perms.deny }) },
+      reason,
+    );
+    if (!res.ok && res.status !== 204) {
+      throw new DiscordError('setChannelRoleOverwrite', res.status, await res.text());
+    }
+  }
+
+  /** Removes a role's entire permission overwrite on a channel (mustr only ever creates its own). */
+  async deleteChannelRoleOverwrite(channelId: string, roleId: string, reason?: string): Promise<void> {
+    const res = await this.call(`/channels/${channelId}/permissions/${roleId}`, { method: 'DELETE' }, reason);
+    if (!res.ok && res.status !== 204 && res.status !== 404) {
+      throw new DiscordError('deleteChannelRoleOverwrite', res.status, await res.text());
+    }
   }
 
   /**

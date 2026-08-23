@@ -7,6 +7,8 @@
  */
 
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { X, MapPin, Gamepad2, Repeat2, Users } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import { useSession } from '../lib/session';
@@ -205,10 +207,25 @@ export default function Events() {
                 <div className="event-when">{whenLabel(ev.startsAt, ev.endsAt)}</div>
                 <h3>{ev.title}</h3>
                 <div className="muted small event-meta">
-                  📍 {ev.location}
-                  {ev.gameName && <> · 🎮 {ev.gameName}</>}
-                  {ev.recurrence !== 'none' && <> · 🔁 {RECURRENCE_BADGE[ev.recurrence]}</>}
-                  {ev.signupCount > 0 && <> · 👥 {ev.signupCount} signed up</>}
+                  <MorphIcon icon={MapPin} size={13} aria-hidden /> {ev.location}
+                  {ev.gameName && (
+                    <>
+                      {' '}
+                      · <MorphIcon icon={Gamepad2} size={13} aria-hidden /> {ev.gameName}
+                    </>
+                  )}
+                  {ev.recurrence !== 'none' && (
+                    <>
+                      {' '}
+                      · <MorphIcon icon={Repeat2} size={13} aria-hidden /> {RECURRENCE_BADGE[ev.recurrence]}
+                    </>
+                  )}
+                  {ev.signupCount > 0 && (
+                    <>
+                      {' '}
+                      · <MorphIcon icon={Users} size={13} aria-hidden /> {ev.signupCount} signed up
+                    </>
+                  )}
                 </div>
                 {ev.description && <p className="event-desc">{ev.description}</p>}
 
@@ -704,7 +721,7 @@ function EventForm({
               disabled={busy}
               title="Remove role"
             >
-              ✕
+              <MorphIcon icon={X} size={13} aria-hidden />
             </button>
           </div>
         ))}

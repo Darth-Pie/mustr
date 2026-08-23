@@ -6,6 +6,8 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { Trophy } from 'lucide';
 import { api, ApiError } from '../lib/api';
 import { useSession } from '../lib/session';
 import { FORMAT_LABELS } from '../../shared/tournament';
@@ -80,7 +82,9 @@ function TournamentCard({ t }: { t: TournamentSummary }) {
       {t.imageUrl ? (
         <img className="tournament-card-img" src={t.imageUrl} alt="" loading="lazy" />
       ) : (
-        <div className="tournament-card-img placeholder" aria-hidden>🏆</div>
+        <div className="tournament-card-img placeholder" aria-hidden>
+          <MorphIcon icon={Trophy} size={40} aria-hidden />
+        </div>
       )}
       <div className="tournament-card-body">
         <div className="tournament-card-title">{t.name}</div>

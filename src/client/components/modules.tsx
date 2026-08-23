@@ -10,6 +10,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { X, Pin, Medal, Trophy, Gamepad2, type IconNode } from 'lucide';
 import { api } from '../lib/api';
 import { sanitizeHtml, sanitizePageHtml, excerptFromHtml } from '../lib/richtext';
 import { isServerServedPath } from '../../shared/nav';
@@ -64,7 +66,7 @@ function GalleryModule({
   endpoint: string;
   pick: (data: unknown) => { key: string | number; name: string; image: string | null; note?: string }[];
   limit: number;
-  fallbackIcon: string;
+  fallbackIcon: IconNode;
 }) {
   const [items, setItems] = useState<ReturnType<typeof pick> | null>(null);
 
@@ -91,7 +93,7 @@ function GalleryModule({
                 <img src={it.image} alt="" loading="lazy" />
               ) : (
                 <span className="module-gallery-icon" aria-hidden>
-                  {fallbackIcon}
+                  <MorphIcon icon={fallbackIcon} size={24} aria-hidden />
                 </span>
               )}
               <span className="module-gallery-name">{it.name}</span>
@@ -244,7 +246,11 @@ function NewsModule({ config }: { config: Config }) {
             <li key={p.id} className="news-item">
               <Link to={`/news/${p.slug}`} className="news-item-link">
                 <div className="news-item-head">
-                  {p.pinned && <span className="tag pin">📌 Pinned</span>}
+                  {p.pinned && (
+                    <span className="tag pin">
+                      <MorphIcon icon={Pin} size={12} aria-hidden /> Pinned
+                    </span>
+                  )}
                   <h3>{p.title}</h3>
                 </div>
                 <p className="news-excerpt">{p.excerpt || excerptFromHtml(p.body)}</p>
@@ -498,7 +504,7 @@ function Lightbox({
   return (
     <div className="lightbox" role="dialog" aria-modal="true" onClick={onClose}>
       <button className="lightbox-close" onClick={onClose} aria-label="Close">
-        ✕
+        <MorphIcon icon={X} size={18} aria-hidden />
       </button>
       {many && (
         <button
@@ -706,7 +712,7 @@ function MedalsModule({ config }: { config: Config }) {
       title={str(config, 'title', 'Medals')}
       endpoint="/medals"
       limit={num(config, 'limit', 12)}
-      fallbackIcon="🎖️"
+      fallbackIcon={Medal}
       pick={(d) =>
         ((d as { medals?: { id: number; name: string; imageUrl: string | null; awardCount?: number }[] }).medals ?? []).map(
           (m) => ({ key: m.id, name: m.name, image: m.imageUrl ?? null, note: m.awardCount ? `${m.awardCount} awarded` : undefined }),
@@ -722,7 +728,7 @@ function WarRecordsModule({ config }: { config: Config }) {
       title={str(config, 'title', 'War Records')}
       endpoint="/warrecords"
       limit={num(config, 'limit', 12)}
-      fallbackIcon="🏆"
+      fallbackIcon={Trophy}
       pick={(d) =>
         ((d as { warRecords?: { id: number; name: string; imageUrl: string | null; gameName?: string | null }[] }).warRecords ?? []).map(
           (w) => ({ key: w.id, name: w.name, image: w.imageUrl ?? null, note: w.gameName ?? undefined }),
@@ -738,7 +744,7 @@ function GamesModule({ config }: { config: Config }) {
       title={str(config, 'title', 'Games We Play')}
       endpoint="/games"
       limit={num(config, 'limit', 12)}
-      fallbackIcon="🎮"
+      fallbackIcon={Gamepad2}
       pick={(d) =>
         ((d as { games?: { id: number; name: string; iconUrl: string | null; active?: boolean }[] }).games ?? [])
           .filter((g) => g.active !== false)
@@ -865,7 +871,7 @@ function TrainingModal({
   return (
     <div className="lightbox" role="dialog" aria-modal="true" onClick={onClose}>
       <button className="lightbox-close" onClick={onClose} aria-label="Close">
-        ✕
+        <MorphIcon icon={X} size={18} aria-hidden />
       </button>
       <div className="training-modal" onClick={(e) => e.stopPropagation()}>
         <div className="training-modal-head">

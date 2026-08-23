@@ -4,6 +4,8 @@
  */
 
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Gamepad2, X } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import Switch from '../components/Switch';
@@ -160,7 +162,9 @@ function GameIconCell({
         {game.iconUrl ? (
           <img src={game.iconUrl} alt="" width={28} height={28} />
         ) : (
-          <span className="rank-thumb-empty">🎮</span>
+          <span className="rank-thumb-empty">
+            <MorphIcon icon={Gamepad2} size={16} aria-hidden />
+          </span>
         )}
       </span>
       <label className="upload-btn mini">
@@ -175,7 +179,7 @@ function GameIconCell({
       </label>
       {game.iconUrl && (
         <button className="mini" disabled={busy || uploading} onClick={() => onSet(null)} title="Remove icon">
-          ✕
+          <MorphIcon icon={X} size={13} aria-hidden />
         </button>
       )}
     </div>

@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MorphIcon } from 'morphicons/react';
-import { ChevronDown, ChevronUp } from 'lucide';
+import { ChevronDown, ChevronUp, Star } from 'lucide';
 import { useSession } from '../lib/session';
 import { memberName } from '../../shared/names';
 import { memberAvatar } from '../../shared/avatar';
@@ -56,7 +56,7 @@ export default function AccountMenu() {
         {viewer.rank && <span className="rank-chip">{viewer.rank.name}</span>}
         {viewer.isGod && (
           <span className="god-chip" title="God status">
-            ★
+            <MorphIcon icon={Star} size={12} aria-hidden />
           </span>
         )}
         <MorphIcon className="caret" icon={open ? ChevronUp : ChevronDown} size={16} aria-hidden />

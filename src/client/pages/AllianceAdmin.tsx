@@ -9,6 +9,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Trophy } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import Switch from '../components/Switch';
@@ -459,7 +461,11 @@ function MirrorCard({
         </ul>
       )}
 
-      {m.champion && <p className="alliance-tourney-champ">🏆 Champion: <b>{m.champion}</b></p>}
+      {m.champion && (
+        <p className="alliance-tourney-champ">
+          <MorphIcon icon={Trophy} size={14} aria-hidden /> Champion: <b>{m.champion}</b>
+        </p>
+      )}
 
       {m.standings && m.standings.length > 0 && (
         <table className="alliance-standings">

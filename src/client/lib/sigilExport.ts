@@ -43,7 +43,11 @@ function lerpC(a: string, b: string, t: number): string {
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // No crossOrigin: every image this loads is same-origin (recipe.imageUrl)
+    // or a same-origin blob: URL (the rendered mark SVG) — blob: URLs carry no
+    // HTTP headers to satisfy a CORS check, so requesting "anonymous" mode on
+    // one taints the canvas in some browsers instead of the request just
+    // succeeding, which is what broke GIF export for built-in/composed marks.
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error('image load failed'));
     img.src = src;

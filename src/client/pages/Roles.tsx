@@ -33,6 +33,17 @@ interface DiscordRole {
   position: number;
 }
 
+/** Discord channel type codes worth distinguishing in the picker. */
+const CATEGORY_TYPE = 4;
+
+interface DiscordChannel {
+  id: string;
+  name: string;
+  type: number;
+  position: number;
+  parentId: string | null;
+}
+
 // Group "roster.view", "roster.edit", … under a "roster" heading.
 const PERMISSION_GROUPS = Object.entries(PERMISSIONS).reduce<Record<string, [Permission, string][]>>(
   (acc, [perm, label]) => {
@@ -47,6 +58,8 @@ export default function Roles() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [discordRoles, setDiscordRoles] = useState<DiscordRole[]>([]);
   const [discordWarning, setDiscordWarning] = useState<string | null>(null);
+  const [discordChannels, setDiscordChannels] = useState<DiscordChannel[]>([]);
+  const [discordChannelsWarning, setDiscordChannelsWarning] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -70,6 +83,13 @@ export default function Roles() {
           setDiscordWarning(warning ?? null);
         })
         .catch(() => setDiscordWarning('Could not reach Discord to load roles.')),
+      api
+        .get<{ channels: DiscordChannel[]; warning?: string }>('/roles/discord-channels')
+        .then(({ channels, warning }) => {
+          setDiscordChannels(channels);
+          setDiscordChannelsWarning(warning ?? null);
+        })
+        .catch(() => setDiscordChannelsWarning('Could not reach Discord to load channels.')),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -133,6 +153,8 @@ export default function Roles() {
             role={selected}
             discordRoles={discordRoles}
             discordWarning={discordWarning}
+            discordChannels={discordChannels}
+            discordChannelsWarning={discordChannelsWarning}
             busy={busy}
             onSave={(patch) =>
               run(async () => {
@@ -198,6 +220,8 @@ function RoleEditor({
   role,
   discordRoles,
   discordWarning,
+  discordChannels,
+  discordChannelsWarning,
   busy,
   onSave,
   onSavePermissions,
@@ -206,6 +230,8 @@ function RoleEditor({
   role: Role;
   discordRoles: DiscordRole[];
   discordWarning: string | null;
+  discordChannels: DiscordChannel[];
+  discordChannelsWarning: string | null;
   busy: boolean;
   onSave: (patch: Partial<Role>) => void;
   onSavePermissions: (permissions: Permission[]) => void;
@@ -239,6 +265,65 @@ function RoleEditor({
   // vanish silently from the dropdown; keep it visible so it can be cleared.
   const mappedButMissing =
     role.discordRoleId && !discordRoles.some((d) => d.id === role.discordRoleId);
+
+  const [channelIds, setChannelIds] = useState<Set<string>>(new Set());
+  const [channelsLoading, setChannelsLoading] = useState(true);
+  const channelAction = useAction();
+
+  useEffect(() => {
+    let cancelled = false;
+    setChannelsLoading(true);
+    api
+      .get<{ channels: { id: string; name: string | null }[] }>(`/roles/${role.id}/channels`)
+      .then(({ channels }) => {
+        if (!cancelled) setChannelIds(new Set(channels.map((c) => c.id)));
+      })
+      .finally(() => {
+        if (!cancelled) setChannelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // role.id only — this component remounts per selected role (key={selected.id}).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role.id]);
+
+  const toggleChannel = (id: string) =>
+    setChannelIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const saveChannels = () =>
+    channelAction.run(async () => {
+      const { channels, warnings } = await api.put<{
+        channels: { id: string; name: string | null }[];
+        warnings: string[];
+      }>(`/roles/${role.id}/channels`, { channelIds: [...channelIds] });
+      setChannelIds(new Set(channels.map((c) => c.id)));
+      if (warnings.length) return { warning: warnings.join(' ') };
+      return 'Saved.';
+    });
+
+  // Group by category (Discord type 4); channels with no parent, or whose
+  // parent wasn't returned, fall into "Uncategorized".
+  const channelGroups = useMemo(() => {
+    const categories = discordChannels.filter((c) => c.type === CATEGORY_TYPE);
+    const catById = new Map(categories.map((c) => [c.id, c]));
+    const groups = new Map<string, { title: string; categoryId: string | null; channels: DiscordChannel[] }>();
+    groups.set('none', { title: 'Uncategorized', categoryId: null, channels: [] });
+    for (const cat of categories.sort((a, b) => a.position - b.position)) {
+      groups.set(cat.id, { title: cat.name, categoryId: cat.id, channels: [] });
+    }
+    for (const ch of discordChannels) {
+      if (ch.type === CATEGORY_TYPE) continue;
+      const key = ch.parentId && catById.has(ch.parentId) ? ch.parentId : 'none';
+      groups.get(key)!.channels.push(ch);
+    }
+    for (const g of groups.values()) g.channels.sort((a, b) => a.position - b.position);
+    return [...groups.values()].filter((g) => g.channels.length > 0 || g.categoryId);
+  }, [discordChannels]);
 
   return (
     <div className="role-editor">
@@ -298,6 +383,62 @@ function RoleEditor({
       >
         Save details
       </button>
+
+      <fieldset className="perms">
+        <legend>Discord channel visibility</legend>
+        {!role.discordRoleId ? (
+          <p className="muted small">Map a Discord role above and save details first — visibility is granted to that role.</p>
+        ) : (
+          <>
+            <p className="muted small">
+              Checking a channel grants the mirrored Discord role <b>View Channel</b> there — mustr only ever
+              adds or removes that one grant, never touching @everyone or anyone else’s access. To actually
+              hide a channel from everyone else, deny @everyone → View Channel on it in Discord first; mustr
+              won’t do that automatically.
+            </p>
+            {discordChannelsWarning && <p className="muted small warn">{discordChannelsWarning}</p>}
+            <Alerts error={channelAction.error} warning={channelAction.warning} notice={channelAction.notice} />
+            {channelsLoading ? (
+              <p className="muted small">Loading…</p>
+            ) : (
+              channelGroups.map((g) => (
+                <div key={g.categoryId ?? 'none'} className="perm-group">
+                  <h4>{g.title}</h4>
+                  {g.categoryId && (
+                    <div className="perm">
+                      <Switch
+                        checked={channelIds.has(g.categoryId)}
+                        onChange={() => toggleChannel(g.categoryId!)}
+                        disabled={busy || channelAction.busy}
+                        label={`Whole “${g.title}” category`}
+                        hideState
+                      />
+                      <span>
+                        <i>Whole category</i>
+                      </span>
+                    </div>
+                  )}
+                  {g.channels.map((ch) => (
+                    <div key={ch.id} className="perm">
+                      <Switch
+                        checked={channelIds.has(ch.id)}
+                        onChange={() => toggleChannel(ch.id)}
+                        disabled={busy || channelAction.busy}
+                        label={ch.name}
+                        hideState
+                      />
+                      <span>{ch.name}</span>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+            <button className="primary" disabled={busy || channelAction.busy || channelsLoading} onClick={() => void saveChannels()}>
+              Save channel visibility
+            </button>
+          </>
+        )}
+      </fieldset>
 
       <fieldset className="perms">
         <legend>Permissions</legend>

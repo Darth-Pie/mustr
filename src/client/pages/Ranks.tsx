@@ -9,6 +9,8 @@
  */
 
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { X } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import { useSession } from '../lib/session';
@@ -323,7 +325,7 @@ function RankImageCell({
       </label>
       {rank.imageUrl && (
         <button className="mini" disabled={busy || uploading} onClick={() => onSet(null)} title="Remove image">
-          ✕
+          <MorphIcon icon={X} size={13} aria-hidden />
         </button>
       )}
     </div>
@@ -360,7 +362,7 @@ function RankRolesEditor({
       <div className="rre-head">
         <h3>Roles granted by “{rank.name}”</h3>
         <button onClick={onClose} title="Close">
-          ✕
+          <MorphIcon icon={X} size={14} aria-hidden />
         </button>
       </div>
       <p className="muted small">

@@ -5,6 +5,8 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { Pin } from 'lucide';
 import { api } from '../lib/api';
 import { ApiError } from '../lib/api';
 import { sanitizeHtml } from '../lib/richtext';
@@ -50,7 +52,11 @@ export default function NewsPost() {
 
       <header className="news-post-head">
         {post.status !== 'published' && <span className="tag">{post.status}</span>}
-        {post.pinned && <span className="tag pin">📌 Pinned</span>}
+        {post.pinned && (
+          <span className="tag pin">
+            <MorphIcon icon={Pin} size={12} aria-hidden /> Pinned
+          </span>
+        )}
         <h1>{post.title}</h1>
         <div className="muted small">
           {post.author ?? 'Unknown'}

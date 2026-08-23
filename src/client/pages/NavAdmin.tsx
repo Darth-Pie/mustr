@@ -17,6 +17,8 @@
  */
 
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { X } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import {
@@ -286,7 +288,7 @@ export default function NavAdmin() {
                 />
                 {roleSelect(item.visibleToRole, (v) => setTop(idx, { visibleToRole: v }))}
                 <div className="nav-row-tools">
-                  <button className="mini danger" title="Delete submenu (its links are removed with it)" onClick={() => delTop(idx)}>✕</button>
+                  <button className="mini danger" title="Delete submenu (its links are removed with it)" onClick={() => delTop(idx)}><MorphIcon icon={X} size={13} aria-hidden /></button>
                 </div>
               </div>
 
@@ -309,7 +311,7 @@ export default function NavAdmin() {
                     />
                     {roleSelect(child.visibleToRole, (v) => setChild(idx, cIdx, { visibleToRole: v }))}
                     <div className="nav-row-tools">
-                      <button className="mini danger" title="Remove" onClick={() => delChild(idx, cIdx)}>✕</button>
+                      <button className="mini danger" title="Remove" onClick={() => delChild(idx, cIdx)}><MorphIcon icon={X} size={13} aria-hidden /></button>
                     </div>
                   </li>
                 ))}
@@ -327,7 +329,7 @@ export default function NavAdmin() {
               />
               {roleSelect(item.visibleToRole, (v) => setTop(idx, { visibleToRole: v }))}
               <div className="nav-row-tools">
-                <button className="mini danger" title="Remove" onClick={() => delTop(idx)}>✕</button>
+                <button className="mini danger" title="Remove" onClick={() => delTop(idx)}><MorphIcon icon={X} size={13} aria-hidden /></button>
               </div>
             </li>
           ),

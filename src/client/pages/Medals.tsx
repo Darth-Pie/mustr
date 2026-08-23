@@ -8,6 +8,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Medal as MedalIcon } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import NumberField from '../components/NumberField';
@@ -108,7 +110,9 @@ export default function Medals() {
                   {medal.imageUrl ? (
                     <img src={medal.imageUrl} alt="" width={28} height={28} />
                   ) : (
-                    <span className="medal-thumb-empty">★</span>
+                    <span className="medal-thumb-empty">
+                      <MorphIcon icon={MedalIcon} size={16} aria-hidden />
+                    </span>
                   )}
                 </span>
                 <span className="medal-name">{medal.name}</span>
@@ -213,7 +217,9 @@ function MedalEditor({
           {imageUrl ? (
             <img src={imageUrl} alt="" width={64} height={64} />
           ) : (
-            <span className="medal-thumb-empty">★</span>
+            <span className="medal-thumb-empty">
+              <MorphIcon icon={MedalIcon} size={32} aria-hidden />
+            </span>
           )}
         </span>
         <div className="medal-image-controls">

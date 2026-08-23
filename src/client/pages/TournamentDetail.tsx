@@ -9,6 +9,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { Trophy, Star } from 'lucide';
 import { api, ApiError } from '../lib/api';
 import { useSession } from '../lib/session';
 import { memberAvatar } from '../../shared/avatar';
@@ -146,7 +148,9 @@ export default function TournamentDetail() {
 
       {champion && (
         <div className="tournament-champion">
-          <span className="champ-crown" aria-hidden>🏆</span>
+          <span className="champ-crown" aria-hidden>
+            <MorphIcon icon={Trophy} size={32} aria-hidden />
+          </span>
           <div>
             <div className="champ-label">Champion</div>
             <div className="champ-name">{champion.name}</div>
@@ -438,7 +442,7 @@ function EntrantRow({
             ) : (
               e.team.map((m) => (
                 <span key={m.userId} className="team-member-chip">
-                  {m.isCaptain && <span title="Captain" aria-label="Captain">★</span>} {m.name}
+                  {m.isCaptain && <span title="Captain" aria-label="Captain"><MorphIcon icon={Star} size={12} aria-hidden /></span>} {m.name}
                 </span>
               ))
             )}
@@ -477,7 +481,7 @@ function TeamRosterEditor({
         ) : (
           e.team.map((m) => (
             <div key={m.userId} className="team-member">
-              <span className="team-member-name">{m.isCaptain && <span title="Captain">★</span>} {m.name}</span>
+              <span className="team-member-name">{m.isCaptain && <span title="Captain"><MorphIcon icon={Star} size={12} aria-hidden /></span>} {m.name}</span>
               {!m.isCaptain && (
                 <button type="button" className="ghost mini" onClick={() => void onAct(() => api.post(`${base}/captain`, { userId: m.userId }))}>
                   Make captain

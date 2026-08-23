@@ -60,6 +60,7 @@ const TABLES: { name: string; table: SQLiteTable }[] = [
   { name: 'rolePermissions', table: s.rolePermissions },
   { name: 'userRoles', table: s.userRoles },
   { name: 'rankRoles', table: s.rankRoles },
+  { name: 'roleChannels', table: s.roleChannels },
   { name: 'trainingRequiredRanks', table: s.trainingRequiredRanks },
   { name: 'trainingCompletions', table: s.trainingCompletions },
   { name: 'memberMedals', table: s.memberMedals },

@@ -4,6 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { Pin } from 'lucide';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { excerptFromHtml } from '../lib/richtext';
@@ -55,7 +57,11 @@ export default function News() {
             <li key={p.id} className="news-item">
               <Link to={`/news/${p.slug}`} className="news-item-link">
                 <div className="news-item-head">
-                  {p.pinned && <span className="tag pin">📌 Pinned</span>}
+                  {p.pinned && (
+                    <span className="tag pin">
+                      <MorphIcon icon={Pin} size={12} aria-hidden /> Pinned
+                    </span>
+                  )}
                   <h3>{p.title}</h3>
                 </div>
                 <p className="news-excerpt">{p.excerpt || excerptFromHtml(p.body)}</p>

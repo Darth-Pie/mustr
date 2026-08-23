@@ -270,6 +270,28 @@ export const rankRoles = sqliteTable(
   (t) => [primaryKey({ columns: [t.rankId, t.roleId] }), index('rank_roles_role_idx').on(t.roleId)],
 );
 
+/**
+ * Which Discord channels a role's mirrored Discord role is granted View
+ * Channel on. mustr only ever writes/removes its OWN allow overwrite for the
+ * mapped role on these channels — it never touches @everyone or any other
+ * role's overwrite, so it can only ever add visibility, never take it away
+ * from someone else. See discord/channelVisibility.ts.
+ */
+export const roleChannels = sqliteTable(
+  'role_channels',
+  {
+    roleId: integer('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    channelId: text('channel_id').notNull(),
+    // Cached label so the admin UI can show a name even if Discord is briefly
+    // unreachable or the channel was renamed since the last successful load.
+    channelName: text('channel_name'),
+    createdAt: integer('created_at').notNull().default(now),
+  },
+  (t) => [primaryKey({ columns: [t.roleId, t.channelId] })],
+);
+
 /* ------------------------------------------------------------------ *
  * Sessions — opaque random id in an httpOnly cookie, state kept here.
  * ------------------------------------------------------------------ */

@@ -9,6 +9,8 @@
 
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MorphIcon } from 'morphicons/react';
+import { Pin } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import { useSession } from '../lib/session';
@@ -109,7 +111,11 @@ export default function NewsAdmin() {
                 onClick={() => void loadSelected(p.id, p.slug)}
               >
                 <span className="news-admin-title">
-                  {p.pinned && <span className="pin-dot" title="Pinned">📌</span>}
+                  {p.pinned && (
+                    <span className="pin-dot" title="Pinned">
+                      <MorphIcon icon={Pin} size={12} aria-hidden />
+                    </span>
+                  )}
                   {p.title}
                 </span>
                 <span className={`status-chip status-${p.status}`}>{p.status}</span>

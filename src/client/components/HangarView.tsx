@@ -5,6 +5,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { ChevronUp, ChevronDown } from 'lucide';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import {
@@ -87,7 +89,8 @@ export default function HangarView({ userId, refreshKey = 0 }: { userId: number;
   }
 
   const sortBy = (k: string) => setSort((s) => (s.k === k ? { k, dir: s.dir === 1 ? -1 : 1 } : { k, dir: 1 }));
-  const arrow = (k: string) => (sort.k === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : '');
+  const arrow = (k: string) =>
+    sort.k === k ? <MorphIcon icon={sort.dir === 1 ? ChevronUp : ChevronDown} size={12} aria-hidden /> : null;
 
   // All items are ships now, so the summed pledge value is the one extra stat.
   const totalValue = items.reduce((sum, i) => sum + Math.max(0, hangarValueNum(i)), 0);
@@ -143,9 +146,9 @@ export default function HangarView({ userId, refreshKey = 0 }: { userId: number;
           <thead>
             <tr>
               <th>Preview</th>
-              <th onClick={() => sortBy('name')}>Ship{arrow('name')}</th>
-              {showValue && <th onClick={() => sortBy('valueNum')}>Value{arrow('valueNum')}</th>}
-              <th onClick={() => sortBy('availability')}>Availability{arrow('availability')}</th>
+              <th onClick={() => sortBy('name')}>Ship {arrow('name')}</th>
+              {showValue && <th onClick={() => sortBy('valueNum')}>Value {arrow('valueNum')}</th>}
+              <th onClick={() => sortBy('availability')}>Availability {arrow('availability')}</th>
             </tr>
           </thead>
           <tbody>

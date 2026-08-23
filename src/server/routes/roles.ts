@@ -7,13 +7,14 @@
  */
 
 import { Hono } from 'hono';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
 import { db, requireAuth, requirePermission } from '../middleware/auth';
 import { can, isPermission, permissionsWithinGrant, type Permission } from '../../shared/permissions';
 import { DiscordError } from '../discord/rest';
 import { discordClient } from '../config';
+import { applyRoleChannelOverwrites, type ChannelSyncFailure } from '../discord/channelVisibility';
 
 const roles = new Hono<AppContext>();
 
@@ -108,6 +109,118 @@ roles.get('/discord-roles', requirePermission('roles.manage'), async (c) => {
         : `Could not load Discord roles: ${(err as Error).message}`;
     return c.json({ roles: [], warning });
   }
+});
+
+/**
+ * Every channel in the guild (any type, categories included), for the
+ * channel-visibility picker on a role. Same "empty + warning" shape as
+ * /discord-roles when the bot isn't reachable.
+ */
+roles.get('/discord-channels', requirePermission('roles.manage'), async (c) => {
+  const client = await rest(c.env);
+  if (!client) {
+    return c.json({ channels: [], warning: 'Discord bot token or guild ID is not configured.' });
+  }
+  try {
+    const channels = await client.listAllChannels();
+    return c.json({ channels });
+  } catch (err) {
+    const warning =
+      err instanceof DiscordError && err.status === 403
+        ? 'The bot cannot read this server’s channels — check it has been invited and has the View Channels permission.'
+        : `Could not load Discord channels: ${(err as Error).message}`;
+    return c.json({ channels: [], warning });
+  }
+});
+
+/** Which channels a role currently grants its mirrored Discord role View Channel on. */
+roles.get('/:id/channels', requirePermission('roles.manage'), async (c) => {
+  const id = Number(c.req.param('id'));
+  const rows = await db(c.env).select().from(s.roleChannels).where(eq(s.roleChannels.roleId, id));
+  return c.json({ channels: rows.map((r) => ({ id: r.channelId, name: r.channelName })) });
+});
+
+function describeChannelFailures(failures: ChannelSyncFailure[], names: Map<string, string>): string[] {
+  return failures.map((f) => `${names.get(f.channelId) ?? `Channel ${f.channelId}`}: ${f.error}`);
+}
+
+/**
+ * Replaces the set of channels a role's mirrored Discord role can view.
+ * mustr grants (or revokes) ONLY its own overwrite for that role on the
+ * channels in the diff — see discord/channelVisibility.ts for why that's
+ * the whole safety story here. The website list is authoritative even if a
+ * given channel push fails; failures come back as warnings, not a 500.
+ */
+roles.put('/:id/channels', requirePermission('roles.manage'), async (c) => {
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json<{ channelIds: string[] }>();
+  if (!Array.isArray(body.channelIds)) return c.json({ error: 'Expected a channelIds array' }, 400);
+
+  const database = db(c.env);
+  const role = await database.query.roles.findFirst({ where: eq(s.roles.id, id) });
+  if (!role) return c.json({ error: 'No such role' }, 404);
+  if (!role.discordRoleId) {
+    return c.json({ error: 'This role has no mirrored Discord role yet — set one under “Save details” first.' }, 400);
+  }
+
+  const current = await database.select().from(s.roleChannels).where(eq(s.roleChannels.roleId, id));
+  const currentIds = new Set(current.map((r) => r.channelId));
+  const desiredIds = new Set(body.channelIds.filter(Boolean));
+
+  const toAdd = [...desiredIds].filter((cid) => !currentIds.has(cid));
+  const toRemove = [...currentIds].filter((cid) => !desiredIds.has(cid));
+
+  const client = await rest(c.env);
+  const names = new Map<string, string>();
+  current.forEach((r) => r.channelName && names.set(r.channelId, r.channelName));
+  if (client) {
+    try {
+      (await client.listAllChannels()).forEach((ch) => names.set(ch.id, ch.name));
+    } catch {
+      // Best-effort only — names are cosmetic; the sync below still runs on bare ids.
+    }
+  }
+
+  const actor = c.get('viewer')!;
+  const sync = await applyRoleChannelOverwrites(
+    client,
+    role.discordRoleId,
+    { add: toAdd, remove: toRemove },
+    `mustr: channel visibility set by ${actor.username}`,
+  );
+
+  if (toRemove.length || toAdd.length) {
+    await database.batch([
+      ...(toRemove.length
+        ? [
+            database
+              .delete(s.roleChannels)
+              .where(and(eq(s.roleChannels.roleId, id), inArray(s.roleChannels.channelId, toRemove))),
+          ]
+        : []),
+      ...(toAdd.length
+        ? [
+            database
+              .insert(s.roleChannels)
+              .values(toAdd.map((channelId) => ({ roleId: id, channelId, channelName: names.get(channelId) ?? null }))),
+          ]
+        : []),
+    ] as never);
+  }
+
+  await database.insert(s.auditLog).values({
+    actorId: actor.id,
+    action: 'role.channels_sync',
+    targetType: 'role',
+    targetId: String(id),
+    meta: { added: toAdd, removed: toRemove, failed: sync.failed.map((f) => f.channelId) },
+  });
+
+  const rows = await database.select().from(s.roleChannels).where(eq(s.roleChannels.roleId, id));
+  return c.json({
+    channels: rows.map((r) => ({ id: r.channelId, name: r.channelName })),
+    warnings: describeChannelFailures(sync.failed, names),
+  });
 });
 
 roles.post('/', requirePermission('roles.manage'), async (c) => {
@@ -236,6 +349,29 @@ roles.patch('/:id', requirePermission('roles.manage'), async (c) => {
     });
   }
 
+  // The role's Discord mirror just changed — any channel-visibility mapping
+  // was pointed at the OLD Discord role, which would otherwise keep its
+  // grant forever (Discord doesn't know mustr moved on). Best-effort strip
+  // the old role's overwrites and, if a new mirror was set, re-apply the
+  // same channel set to it so the mapping follows the role instead of
+  // silently orphaning access on the old one.
+  if (mappingChanged) {
+    const mappedChannels = await database.select().from(s.roleChannels).where(eq(s.roleChannels.roleId, id));
+    if (mappedChannels.length) {
+      const client = await rest(c.env);
+      const channelIds = mappedChannels.map((r) => r.channelId);
+      if (role.discordRoleId) {
+        await applyRoleChannelOverwrites(client, role.discordRoleId, { add: [], remove: channelIds }, 'mustr: Discord role mapping changed');
+      }
+      if (updated.discordRoleId) {
+        await applyRoleChannelOverwrites(client, updated.discordRoleId, { add: channelIds, remove: [] }, 'mustr: Discord role mapping changed');
+      } else {
+        // No replacement mirror — the mapping has nothing left to point at.
+        await database.delete(s.roleChannels).where(eq(s.roleChannels.roleId, id));
+      }
+    }
+  }
+
   return c.json({ role: updated, discordSync });
 });
 
@@ -340,9 +476,26 @@ roles.delete('/:id', requirePermission('roles.manage'), async (c) => {
     }
   }
 
-  // user_roles and role_permissions cascade on delete (see schema). The Discord
-  // side is left to the reconcile sweep — it removes the old mapped role and
-  // adds the replacement's, from the memberships we just wrote.
+  // Channel-visibility overwrites live on Discord's side, keyed to the (now
+  // vanishing) Discord role — role_channels cascading away here wouldn't
+  // touch them, so strip them first or the grant outlives the role.
+  if (role.discordRoleId) {
+    const mappedChannels = await database.select().from(s.roleChannels).where(eq(s.roleChannels.roleId, id));
+    if (mappedChannels.length) {
+      const client = await rest(c.env);
+      await applyRoleChannelOverwrites(
+        client,
+        role.discordRoleId,
+        { add: [], remove: mappedChannels.map((r) => r.channelId) },
+        'mustr: role deleted',
+      );
+    }
+  }
+
+  // user_roles, role_permissions, and role_channels cascade on delete (see
+  // schema). The Discord *role membership* side is left to the reconcile
+  // sweep — it removes the old mapped role and adds the replacement's, from
+  // the memberships we just wrote.
   await database.delete(s.roles).where(eq(s.roles.id, id));
 
   await database.insert(s.auditLog).values({

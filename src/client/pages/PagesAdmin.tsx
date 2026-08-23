@@ -10,6 +10,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { X, ChevronUp, ChevronDown } from 'lucide';
 import { api } from '../lib/api';
 import { useDragOrder, type DragOrder } from '../lib/dragOrder';
 import Switch from '../components/Switch';
@@ -489,7 +491,7 @@ function RowEditor(props: {
         <span className="row-editor-label">Row {index + 1}</span>
         <div className="row-editor-tools">
           <button type="button" className="mini" title="Add column" onClick={() => props.onAddColumn(row.id)}>+ Col</button>
-          <button type="button" className="mini danger" title="Delete row" onClick={() => props.onRemoveRow(row.id)}>✕</button>
+          <button type="button" className="mini danger" title="Delete row" onClick={() => props.onRemoveRow(row.id)}><MorphIcon icon={X} size={13} aria-hidden /></button>
         </div>
       </div>
       <div className="row-editor-cols">
@@ -532,7 +534,7 @@ function ColumnEditor(props: {
             ))}
           </select>
         </label>
-        <button type="button" className="mini danger" title="Delete column" onClick={() => props.onRemoveColumn(rowId, col.id)}>✕</button>
+        <button type="button" className="mini danger" title="Delete column" onClick={() => props.onRemoveColumn(rowId, col.id)}><MorphIcon icon={X} size={13} aria-hidden /></button>
       </div>
 
       <div
@@ -623,7 +625,7 @@ function ModuleEditor(props: {
         </span>
         <span className="module-editor-type">{spec?.label ?? m.type}</span>
         <div className="module-editor-tools">
-          <button type="button" className="mini danger" title="Remove" onClick={() => props.onRemoveModule(rowId, colId, m.id)}>✕</button>
+          <button type="button" className="mini danger" title="Remove" onClick={() => props.onRemoveModule(rowId, colId, m.id)}><MorphIcon icon={X} size={13} aria-hidden /></button>
         </div>
       </div>
 
@@ -1063,7 +1065,7 @@ function GalleryConfig({
               />
               <div className="module-editor-tools">
                 <button type="button" className="mini" title="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
-                  ↑
+                  <MorphIcon icon={ChevronUp} size={13} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -1072,7 +1074,7 @@ function GalleryConfig({
                   disabled={i === items.length - 1}
                   onClick={() => move(i, 1)}
                 >
-                  ↓
+                  <MorphIcon icon={ChevronDown} size={13} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -1080,7 +1082,7 @@ function GalleryConfig({
                   title="Remove"
                   onClick={() => setItems(items.filter((_, j) => j !== i))}
                 >
-                  ✕
+                  <MorphIcon icon={X} size={13} aria-hidden />
                 </button>
               </div>
             </li>
@@ -1200,7 +1202,7 @@ function HeroConfig({
               onChange={(e) => patchCard(i, { title: e.target.value })}
             />
             <button type="button" className="mini danger" title="Remove card" onClick={() => removeCard(i)}>
-              ✕
+              <MorphIcon icon={X} size={13} aria-hidden />
             </button>
           </div>
           <input

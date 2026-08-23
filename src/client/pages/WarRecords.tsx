@@ -8,6 +8,8 @@
  */
 
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Trophy } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 
@@ -98,7 +100,9 @@ export default function WarRecords() {
                   {rec.imageUrl ? (
                     <img src={rec.imageUrl} alt="" width={28} height={28} />
                   ) : (
-                    <span className="medal-thumb-empty">🏆</span>
+                    <span className="medal-thumb-empty">
+                      <MorphIcon icon={Trophy} size={16} aria-hidden />
+                    </span>
                   )}
                 </span>
                 <span className="medal-name">{rec.name}</span>
@@ -193,7 +197,9 @@ function RecordEditor({
           {imageUrl ? (
             <img src={imageUrl} alt="" width={64} height={64} />
           ) : (
-            <span className="medal-thumb-empty">🏆</span>
+            <span className="medal-thumb-empty">
+              <MorphIcon icon={Trophy} size={32} aria-hidden />
+            </span>
           )}
         </span>
         <div className="medal-image-controls">
