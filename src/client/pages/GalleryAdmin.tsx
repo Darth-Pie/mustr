@@ -18,6 +18,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Play } from 'lucide';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import { useDragOrder } from '../lib/dragOrder';
@@ -540,7 +542,7 @@ function ItemRow({
         ⠿
       </span>
       <span className="gallery-admin-thumb">
-        {thumb ? <img src={thumb} alt="" loading="lazy" /> : <span aria-hidden>▶</span>}
+        {thumb ? <img src={thumb} alt="" loading="lazy" /> : <span aria-hidden><MorphIcon icon={Play} size={16} aria-hidden /></span>}
       </span>
       <div className="gallery-admin-item-fields">
         <input

@@ -9,6 +9,8 @@
  */
 
 import { useMemo, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Play } from 'lucide';
 import SigilStage from '../components/SigilStage';
 import { decodeRecipe, DEFAULT_RECIPE } from '../../shared/sigil';
 
@@ -38,8 +40,8 @@ export default function ForgeShare() {
           <a className="fsp-btn primary" href={MUSTR_URL} target="_blank" rel="noopener noreferrer">
             Make your own with mustr ↗
           </a>
-          <button type="button" className="fsp-btn" onClick={() => setPlayKey((k) => k + 1)}>
-            ▶ Replay
+          <button type="button" className="fsp-btn btn-icon" onClick={() => setPlayKey((k) => k + 1)}>
+            <MorphIcon icon={Play} size={14} aria-hidden /> Replay
           </button>
         </div>
         <p className="fsp-foot">

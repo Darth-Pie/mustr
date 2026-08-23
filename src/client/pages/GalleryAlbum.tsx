@@ -16,6 +16,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Play } from 'lucide';
 import { Link, useParams } from 'react-router-dom';
 import { RowsPhotoAlbum, type Photo } from 'react-photo-album';
 // GenericSlide isn't imported: inside the `declare module` block below it
@@ -176,7 +178,7 @@ export default function GalleryAlbumPage() {
             extras: (_, { photo }) =>
               photo.kind === 'video' ? (
                 <span className="gallery-play" aria-hidden>
-                  ▶
+                  <MorphIcon icon={Play} size={18} aria-hidden />
                 </span>
               ) : null,
           }}

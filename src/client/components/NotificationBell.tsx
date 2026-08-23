@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MorphIcon } from 'morphicons/react';
-import { Bell } from 'lucide';
+import { Bell, BellRing } from 'lucide';
 import { api } from '../lib/api';
 
 interface Reviewer {
@@ -108,7 +108,9 @@ export default function NotificationBell() {
         aria-expanded={open}
         onClick={toggle}
       >
-        <MorphIcon icon={Bell} size={18} aria-hidden />
+        {/* Morphs to a ringing bell while anything is unread — the icon itself
+            carries the state instead of leaving the badge to do all the work. */}
+        <MorphIcon icon={unread > 0 ? BellRing : Bell} size={18} spring="snappy" aria-hidden />
         {unread > 0 && <span className="notif-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
 

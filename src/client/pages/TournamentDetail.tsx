@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { MorphIcon } from 'morphicons/react';
-import { Trophy, Star } from 'lucide';
+import { Trophy, Star, Users } from 'lucide';
 import { api, ApiError } from '../lib/api';
 import { useSession } from '../lib/session';
 import { memberAvatar } from '../../shared/avatar';
@@ -418,7 +418,7 @@ function EntrantRow({
       <div className="entrant-row-main">
         {e.seed != null && <span className="entrant-seed">{e.seed}</span>}
         <button type="button" className="entrant-team-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          <span className="entrant-team-icon" aria-hidden>👥</span>
+          <span className="entrant-team-icon" aria-hidden><MorphIcon icon={Users} size={14} aria-hidden /></span>
           <span className="entrant-name">{e.name}</span>
           {e.originName ? (
             <span className="entrant-origin">via {e.originName}</span>

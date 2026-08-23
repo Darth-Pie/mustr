@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MorphIcon } from 'morphicons/react';
-import { X, ChevronUp, ChevronDown } from 'lucide';
+import { X, ChevronUp, ChevronDown, Play } from 'lucide';
 import { api } from '../lib/api';
 import { useDragOrder, type DragOrder } from '../lib/dragOrder';
 import Switch from '../components/Switch';
@@ -1051,8 +1051,8 @@ function GalleryConfig({
                 {it.kind === 'image' ? (
                   <img src={it.url} alt="" />
                 ) : (
-                  <span className="gallery-config-video" title={it.url}>
-                    ▶ {it.provider ?? 'video'}
+                  <span className="gallery-config-video btn-icon" title={it.url}>
+                    <MorphIcon icon={Play} size={13} aria-hidden /> {it.provider ?? 'video'}
                   </span>
                 )}
               </span>

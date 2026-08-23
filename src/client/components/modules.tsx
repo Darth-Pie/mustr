@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MorphIcon } from 'morphicons/react';
-import { X, Pin, Medal, Trophy, Gamepad2, type IconNode } from 'lucide';
+import { X, Pin, Medal, Trophy, Gamepad2, Play, type IconNode } from 'lucide';
 import { api } from '../lib/api';
 import { sanitizeHtml, sanitizePageHtml, excerptFromHtml } from '../lib/richtext';
 import { isServerServedPath } from '../../shared/nav';
@@ -582,7 +582,7 @@ function MediaGalleryModule({ config }: { config: Config }) {
                 )}
                 {it.kind === 'video' && (
                   <span className="gallery-play" aria-hidden>
-                    ▶
+                    <MorphIcon icon={Play} size={18} aria-hidden />
                   </span>
                 )}
               </button>

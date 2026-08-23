@@ -6,6 +6,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Copy, Check } from 'lucide';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import Switch from '../components/Switch';
@@ -210,8 +212,9 @@ export default function AccountSettings() {
           <strong>Copy your new token now. It won’t be shown again.</strong>
           <div className="token-reveal-row">
             <code className="token-value">{fresh.token}</code>
-            <button type="button" className="primary" onClick={copyFresh}>
-              {copied ? 'Copied ✓' : 'Copy'}
+            <button type="button" className="primary btn-icon" onClick={copyFresh}>
+              <MorphIcon icon={copied ? Check : Copy} size={14} spring="snappy" aria-hidden />
+              {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
           <button type="button" className="ghost" onClick={() => setFresh(null)}>

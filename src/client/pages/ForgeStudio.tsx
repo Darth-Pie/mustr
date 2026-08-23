@@ -7,6 +7,8 @@
  */
 
 import { useMemo, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Play, Dices, Download, Copy, Check, LoaderCircle } from 'lucide';
 import { useSigil } from '../lib/sigil';
 import SigilStage from '../components/SigilStage';
 import { api } from '../lib/api';
@@ -203,8 +205,12 @@ export default function ForgeStudio() {
             <SigilStage recipe={recipe} playKey={playKey} loop={loop} />
           </div>
           <div className="forge-preview-actions">
-            <button type="button" className="primary" onClick={replay}>▶ Forge it</button>
-            <button type="button" className="ghost" onClick={surprise}>🎲 Surprise me</button>
+            <button type="button" className="primary btn-icon" onClick={replay}>
+              <MorphIcon icon={Play} size={14} aria-hidden /> Forge it
+            </button>
+            <button type="button" className="ghost btn-icon" onClick={surprise}>
+              <MorphIcon icon={Dices} size={14} aria-hidden /> Surprise me
+            </button>
             <label className="toggle-inline"><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> Loop</label>
           </div>
 
@@ -236,7 +242,10 @@ export default function ForgeStudio() {
             {shareUrl ? (
               <div className="forge-share-row">
                 <input readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
-                <button type="button" className="ghost" onClick={copyShare}>{copied ? 'Copied ✓' : 'Copy'}</button>
+                <button type="button" className="ghost btn-icon" onClick={copyShare}>
+                  <MorphIcon icon={copied ? Check : Copy} size={14} spring="snappy" aria-hidden />
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
               </div>
             ) : (
               <p className="muted small">Uploaded images can’t ride in a link (they’re too big for a URL). Compose a mark or pick a built-in one to get a shareable link.</p>
@@ -244,8 +253,16 @@ export default function ForgeStudio() {
           </div>
 
           <div className="forge-export">
-            <button type="button" className="ghost" disabled={exporting} onClick={() => void downloadGif()}>
-              {exporting ? `Rendering… ${Math.round(exportPct * 100)}%` : '⬇ Download animated GIF'}
+            <button type="button" className="ghost btn-icon" disabled={exporting} onClick={() => void downloadGif()}>
+              {/* Morphs to a spinner-ish loader while encoding, back to the
+                  download arrow when idle. */}
+              <MorphIcon
+                className={exporting ? 'is-working' : undefined}
+                icon={exporting ? LoaderCircle : Download}
+                size={14}
+                aria-hidden
+              />
+              {exporting ? `Rendering… ${Math.round(exportPct * 100)}%` : 'Download animated GIF'}
             </button>
             <span className="muted small">A looping GIF you can post anywhere — watermarked with mustr.</span>
           </div>

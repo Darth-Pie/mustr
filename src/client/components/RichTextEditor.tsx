@@ -10,7 +10,7 @@
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { MorphIcon } from 'morphicons/react';
-import { Link as LinkIcon, type IconNode } from 'lucide';
+import { Link as LinkIcon, Quote, type IconNode } from 'lucide';
 import { sanitizeHtml } from '../lib/richtext';
 
 function ToolButton({
@@ -97,7 +97,7 @@ export default function RichTextEditor({
         <span className="rte-sep" />
         <ToolButton editor={editor} label="• List" title="Bullet list" active={editor.isActive('bulletList')} disabled={disabled} onClick={() => editor.chain().focus().toggleBulletList().run()} />
         <ToolButton editor={editor} label="1. List" title="Numbered list" active={editor.isActive('orderedList')} disabled={disabled} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
-        <ToolButton editor={editor} label="❝" title="Quote" active={editor.isActive('blockquote')} disabled={disabled} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
+        <ToolButton editor={editor} icon={Quote} title="Quote" active={editor.isActive('blockquote')} disabled={disabled} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
         <ToolButton editor={editor} label="{ }" title="Code block" active={editor.isActive('codeBlock')} disabled={disabled} onClick={() => editor.chain().focus().toggleCodeBlock().run()} />
         <span className="rte-sep" />
         <ToolButton editor={editor} icon={LinkIcon} title="Link" active={editor.isActive('link')} disabled={disabled} onClick={setLink} />

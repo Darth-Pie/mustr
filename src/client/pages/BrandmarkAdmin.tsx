@@ -6,6 +6,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Play } from 'lucide';
 import { api } from '../lib/api';
 import { useBrandmark } from '../lib/brandmark';
 import { useBranding } from '../lib/branding';
@@ -84,8 +86,8 @@ export default function BrandmarkAdmin() {
               <p className="muted small">Upload a mark, or set a header logo under Branding, to preview.</p>
             )}
           </div>
-          <button type="button" className="ghost" onClick={() => setPlayKey((k) => k + 1)} disabled={!src}>
-            ▶ Replay preview
+          <button type="button" className="ghost btn-icon" onClick={() => setPlayKey((k) => k + 1)} disabled={!src}>
+            <MorphIcon icon={Play} size={14} aria-hidden /> Replay preview
           </button>
         </div>
 

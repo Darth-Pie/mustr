@@ -15,6 +15,8 @@
  */
 
 import type { CSSProperties } from 'react';
+import { MorphIcon } from 'morphicons/react';
+import { Lock, Globe, Users, type IconNode } from 'lucide';
 import type { PageLayout } from '../../shared/layout';
 import { useSession } from '../lib/session';
 import { MODULE_RENDERERS } from './modules';
@@ -46,10 +48,10 @@ export default function PageRenderer({
   /** The audience badge shown in the editor preview. */
   const audienceBadge = (
     m: PageLayout['rows'][number]['columns'][number]['modules'][number],
-  ): { icon: string; label: string; cls: string } => {
-    if (m.visibleToRole != null) return { icon: '🔒', label: roleName(m.visibleToRole), cls: 'role' };
-    if (m.public) return { icon: '🌐', label: 'Public', cls: 'public' };
-    return { icon: '👥', label: 'Members', cls: 'members' };
+  ): { icon: IconNode; label: string; cls: string } => {
+    if (m.visibleToRole != null) return { icon: Lock, label: roleName(m.visibleToRole), cls: 'role' };
+    if (m.public) return { icon: Globe, label: 'Public', cls: 'public' };
+    return { icon: Users, label: 'Members', cls: 'members' };
   };
 
   if (!layout.rows.length) {
@@ -81,7 +83,7 @@ export default function PageRenderer({
                   return (
                     <div className={`module-gated audience-${b.cls}`} key={m.id}>
                       <span className="module-gated-badge" title={`Visible to: ${b.label}`}>
-                        {b.icon} {b.label}
+                        <MorphIcon icon={b.icon} size={12} aria-hidden /> {b.label}
                       </span>
                       {node}
                     </div>
