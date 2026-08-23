@@ -7505,9 +7505,9 @@ a.button.primary { background: var(--color-accent); color: var(--color-accent-te
 .brandmark-splash {
   position: fixed; inset: 0; z-index: 4000; display: grid; place-items: center; cursor: pointer;
   background: radial-gradient(1200px 700px at 50% 42%, color-mix(in srgb, var(--color-bg) 82%, transparent), var(--color-bg) 70%);
-  animation: brandmark-in .3s ease both;
+  animation: brandmark-in .5s ease both;
 }
-.brandmark-splash.closing { animation: brandmark-out .6s ease forwards; pointer-events: none; }
+.brandmark-splash.closing { animation: brandmark-out 1s ease forwards; pointer-events: none; }
 /* The mark should own the screen for its one moment — 340px read as small and
    lost on a desktop viewport. Keep a vmin cap so it still fits on phones. */
 .brandmark-splash .splash-mark { width: min(66vmin, 520px); height: min(66vmin, 520px); }

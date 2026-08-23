@@ -40,7 +40,9 @@ export default function BrandmarkSplash() {
   const close = () => {
     try { sessionStorage.setItem(SESSION_KEY, '1'); } catch { /* ignore */ }
     setPhase('closing');
-    window.setTimeout(() => setPhase('done'), 650);
+    // Must outlast the brandmark-out animation, or the node unmounts mid-fade
+    // and the splash appears to snap away.
+    window.setTimeout(() => setPhase('done'), 1150);
   };
 
   // Preserve the old "blank accent = live theme accent" behaviour for the legacy
@@ -54,7 +56,10 @@ export default function BrandmarkSplash() {
       role="presentation"
       onClick={close}
     >
-      <SigilStage recipe={recipe} className="splash-mark" onDone={() => window.setTimeout(close, 1100)} />
+      {/* Let the finished mark sit for a beat before dismissing — the animation
+          resolving and the screen clearing on top of each other is what makes
+          the intro feel rushed. */}
+      <SigilStage recipe={recipe} className="splash-mark" onDone={() => window.setTimeout(close, 1900)} />
     </div>
   );
 }

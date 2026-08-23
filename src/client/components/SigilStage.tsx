@@ -139,6 +139,33 @@ export default function SigilStage({ recipe: rawRecipe, playKey = 0, loop = fals
         (p as unknown as HTMLElement).dataset.closed = closed ? '1' : '0';
         markG.appendChild(p);
       });
+
+      // Tighten the viewBox onto the artwork itself. The built-in marks are
+      // authored inside a 0..100 box but only occupy the middle ~60% of it, so
+      // rendering that full box wastes roughly a third of the stage on empty
+      // padding and the mark reads as small no matter how large the container
+      // is. Fit to the real bounding box (plus a small margin) so the mark fills
+      // whatever space it's given. Everything else is expressed relative to vb
+      // — particle scatter, wipe, shimmer, the two-tone gradient — so they all
+      // follow automatically. Guarded: getBBox needs layout and returns zeroes
+      // if the element isn't rendered yet, in which case we keep the authored box.
+      if (!mark.raster && mark.paths.length) {
+        try {
+          const b = markG.getBBox();
+          if (b.width > 1 && b.height > 1) {
+            const pad = Math.max(b.width, b.height) * 0.08;
+            const side = Math.max(b.width, b.height) + pad * 2;
+            // Square + centred, so preserveAspectRatio never letterboxes it.
+            vb = [
+              b.x + b.width / 2 - side / 2,
+              b.y + b.height / 2 - side / 2,
+              side,
+              side,
+            ];
+            svg.setAttribute('viewBox', vb.join(' '));
+          }
+        } catch { /* no layout yet — authored box is a fine fallback */ }
+      }
     };
 
     /* ---- sampling ---- */
