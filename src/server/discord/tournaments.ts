@@ -45,7 +45,8 @@ export async function announceTournament(
     // "/media/…" path against the canonical site URL so Discord can fetch it.
     const full = await loadConfig(env, db);
     const abs = (u: string) => (!u ? '' : /^https?:\/\//i.test(u) ? u : full.siteUrl ? full.siteUrl.replace(/\/$/, '') + u : '');
-    const crest = abs(full.siteSigilPng);
+    // Prefer the animated crest — Discord plays GIFs in embed thumbnails.
+    const crest = abs(full.siteSigilGif || full.siteSigilPng);
     const thumbnail = crest ? { url: crest } : undefined;
 
     let embed: Embed;

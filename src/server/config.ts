@@ -43,6 +43,9 @@ export interface AppConfig {
    *  enabled — blank otherwise. Used as static brand art (Discord embed
    *  thumbnails, OG image fallback). Same-origin "/media/…" path. */
   siteSigilPng: string;
+  /** Animated (GIF) form of the same mark, when one has been rendered. Discord
+   *  embeds animate it; still-image consumers (OG/link previews) use the PNG. */
+  siteSigilGif: string;
 }
 
 /** The shape persisted in settings['identity']. Every field optional — a blank
@@ -80,11 +83,12 @@ export async function loadConfig(env: Env, database?: DB): Promise<AppConfig> {
   // The org's sigil PNG, but only while the sigil is enabled (so turning the
   // sigil on/off toggles all its brand-kit surfaces together). Never throws.
   let siteSigilPng = '';
+  let siteSigilGif = '';
   try {
     const srow = await dbi.query.settings.findFirst({ where: eq(s.settings.key, 'sigil') });
     if (srow?.value) {
       const sg = sanitizeSiteSigil(srow.value);
-      if (sg.enabled) siteSigilPng = sg.pngUrl;
+      if (sg.enabled) { siteSigilPng = sg.pngUrl; siteSigilGif = sg.gifUrl; }
     }
   } catch {
     // no settings row/table yet
@@ -95,6 +99,7 @@ export async function loadConfig(env: Env, database?: DB): Promise<AppConfig> {
     siteName: firstNonEmpty(stored.siteName, env.SITE_NAME, 'mustr'),
     siteUrl: firstNonEmpty(stored.siteUrl, env.SITE_URL),
     siteSigilPng,
+    siteSigilGif,
     discord: {
       clientId: firstNonEmpty(d.clientId, env.DISCORD_CLIENT_ID),
       guildId: firstNonEmpty(d.guildId, env.DISCORD_GUILD_ID),

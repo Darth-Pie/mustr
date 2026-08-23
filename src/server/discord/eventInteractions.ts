@@ -79,9 +79,9 @@ export async function handleEventComponent(env: Env, i: Interaction): Promise<vo
   try {
     const state = await loadEventState(db, eventId);
     if (state) {
-      const { siteUrl, siteSigilPng } = await loadConfig(env, db);
+      const { siteUrl, siteSigilPng, siteSigilGif } = await loadConfig(env, db);
       const checkinEnabled = (await loadAttendanceConfig(env, db)).mode !== 'officers';
-      await editOriginalMessage(i.application_id, i.token, buildEventMessage(state, siteUrl, checkinEnabled, siteSigilPng));
+      await editOriginalMessage(i.application_id, i.token, buildEventMessage(state, siteUrl, checkinEnabled, siteSigilGif || siteSigilPng));
     }
   } catch (err) {
     console.error('Event component message refresh failed', err);

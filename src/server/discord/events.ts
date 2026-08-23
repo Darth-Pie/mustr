@@ -226,7 +226,7 @@ export async function syncEventToDiscord(env: Env, eventId: number): Promise<Dis
     const channelId = (await loadAnnouncementConfig(db)).channelId;
     if (channelId) {
       const checkinEnabled = (await loadAttendanceConfig(env, db)).mode !== 'officers';
-      const message = buildEventMessage(state, cfg.siteUrl, checkinEnabled, cfg.siteSigilPng);
+      const message = buildEventMessage(state, cfg.siteUrl, checkinEnabled, cfg.siteSigilGif || cfg.siteSigilPng);
       if (ids.discordMessageId) {
         await rest.editMessage(channelId, ids.discordMessageId, message);
       } else {
@@ -256,7 +256,7 @@ export async function refreshEventMessage(env: Env, eventId: number): Promise<vo
     const channelId = (await loadAnnouncementConfig(db)).channelId;
     if (channelId) {
       const checkinEnabled = (await loadAttendanceConfig(env, db)).mode !== 'officers';
-      await rest.editMessage(channelId, state.event.discordMessageId, buildEventMessage(state, cfg.siteUrl, checkinEnabled, cfg.siteSigilPng));
+      await rest.editMessage(channelId, state.event.discordMessageId, buildEventMessage(state, cfg.siteUrl, checkinEnabled, cfg.siteSigilGif || cfg.siteSigilPng));
     }
   } catch (err) {
     console.error('Event message refresh failed', err);

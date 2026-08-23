@@ -111,6 +111,7 @@ export default function ForgeStudio() {
       // static art (Discord embeds, OG images). Image sigils reuse their upload.
       // Non-fatal: if it fails, we still save the recipe (art falls back to the logo).
       let pngUrl = '';
+      let gifUrl = '';
       let artError = '';
       try {
         if (recipe.source === 'image') {
@@ -120,6 +121,22 @@ export default function ForgeStudio() {
           const res = await api.upload<{ url: string }>('/media/branding', file);
           pngUrl = res.url;
         }
+        // Animated crest for Discord embeds. No watermark: this is the org's own
+        // mark inside their own server, not something being shared outward.
+        // Non-fatal on its own — a failure here still leaves the static PNG.
+        try {
+          // 220px/36f keeps the worst realistic recipe (dense two-tone composed
+          // constellation) near 570KB — comfortably inside the 1MB upload cap,
+          // where 320px left only a few percent of headroom and a denser mark
+          // would have failed the upload. Discord renders embed thumbnails at
+          // roughly 80px, so this is still well above what it displays.
+          const gif = await exportSigilGif(recipe, { size: 220, frames: 36, watermark: false });
+          const gifFile = new File([gif], 'sigil.gif', { type: 'image/gif' });
+          const res = await api.upload<{ url: string }>('/media/branding', gifFile);
+          gifUrl = res.url;
+        } catch (e) {
+          console.error('Sigil animated crest failed to render/upload:', e);
+        }
       } catch (e) {
         // Non-fatal — the recipe still saves — but never silent: without this
         // PNG every static-art surface (Discord embed crest, OG image) quietly
@@ -128,7 +145,7 @@ export default function ForgeStudio() {
         artError = e instanceof Error ? e.message : String(e);
         console.error('Sigil static art failed to render/upload:', e);
       }
-      await save({ enabled, recipe, pngUrl, holdSeconds });
+      await save({ enabled, recipe, pngUrl, gifUrl, holdSeconds });
       const base = enabled
         ? 'Saved. Your sigil now plays once when a visitor loads the site.'
         : 'Saved. Turn on “Play on site load” to show it as your boot splash — it is also what enables the Discord embed crest.';

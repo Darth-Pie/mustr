@@ -178,6 +178,12 @@ export interface SiteSigil {
    *  static art (Discord embeds, OG images) where a raster URL is required.
    *  Blank until first saved, or when rasterization failed. */
   pngUrl: string;
+  /** A hosted ANIMATED GIF of the mark, rendered at save time without the
+   *  "mustr" watermark. Used as the Discord embed crest, which animates. Kept
+   *  separate from pngUrl rather than replacing it: link-preview/OG scrapers
+   *  want a still, so those keep using the PNG. Blank until first saved, or if
+   *  rendering failed. */
+  gifUrl: string;
   /** How long the finished mark rests on screen before the splash fades out,
    *  in seconds. Distinct from `recipe.speed`, which governs how fast the
    *  animation itself plays — this is the pause after it resolves, and it's the
@@ -194,6 +200,7 @@ export const DEFAULT_SITE_SIGIL: SiteSigil = {
   enabled: false,
   recipe: DEFAULT_RECIPE,
   pngUrl: '',
+  gifUrl: '',
   holdSeconds: SIGIL_HOLD_DEFAULT,
 };
 
@@ -204,6 +211,7 @@ export function sanitizeSiteSigil(raw: unknown): SiteSigil {
     enabled: r.enabled === true,
     recipe: sanitizeRecipe(r.recipe),
     pngUrl: cleanUrl(r.pngUrl),
+    gifUrl: cleanUrl(r.gifUrl),
     // Absent on rows saved before this existed — fall back, don't zero it out.
     holdSeconds: Number.isFinite(hold)
       ? Math.min(SIGIL_HOLD_MAX, Math.max(SIGIL_HOLD_MIN, hold))

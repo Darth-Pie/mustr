@@ -222,7 +222,7 @@ function drawWatermark(ctx: CanvasRenderingContext2D, S: number) {
   ctx.restore();
 }
 
-function drawFrame(ctx: CanvasRenderingContext2D, sc: Scene, t: number) {
+function drawFrame(ctx: CanvasRenderingContext2D, sc: Scene, t: number, watermark = true) {
   const S = sc.size, k = S / 100, r = sc.recipe;
   // background
   const bg = ctx.createRadialGradient(S * 0.5, S * 0.44, 0, S * 0.5, S * 0.44, S * 0.62);
@@ -271,13 +271,20 @@ function drawFrame(ctx: CanvasRenderingContext2D, sc: Scene, t: number) {
     ctx.globalAlpha = 1;
   }
 
-  drawWatermark(ctx, S);
+  if (watermark) drawWatermark(ctx, S);
 }
 
 export interface GifOptions {
   size?: number;
   frames?: number;
   fps?: number;
+  /** Bake in the small "mustr" mark. On for anything the user posts elsewhere;
+   *  off for the org's own art (its Discord embed crest), where the product
+   *  signature would just be clutter inside their own server. */
+  watermark?: boolean;
+  /** Frames of the finished mark to lead with, so the GIF's poster frame shows
+   *  the sigil. Set 0 to start straight into the animation. */
+  posterFrames?: number;
   onProgress?: (fraction: number) => void;
 }
 
@@ -286,6 +293,15 @@ export async function exportSigilGif(recipe: SigilRecipe, opts: GifOptions = {})
   const size = opts.size ?? 360;
   const frames = opts.frames ?? 44;
   const fps = opts.fps ?? 20;
+  const watermark = opts.watermark !== false;
+  // Frame 0 of the raw animation is legitimately empty — particles fade in from
+  // zero opacity — so anything that shows a still (file thumbnails, Discord
+  // before it autoplays, an <img> that never animates) displayed a blank
+  // square and read as broken. Lead with the resolved mark instead. The
+  // animation's own last frame is also the resolved mark, so the loop wraps
+  // back into this hold seamlessly; the one hard cut is hold → assemble, which
+  // reads as the intro restarting.
+  const posterFrames = Math.max(0, opts.posterFrames ?? 8);
   const delay = Math.round(1000 / fps);
 
   const sc = await buildScene(recipe, size);
@@ -294,17 +310,30 @@ export async function exportSigilGif(recipe: SigilRecipe, opts: GifOptions = {})
 
   // One global palette from the fully-revealed final frame → stable colours, no
   // per-frame flicker, faster encode.
-  drawFrame(ctx, sc, 1);
+  drawFrame(ctx, sc, 1, watermark);
   const palette = quantize(ctx.getImageData(0, 0, size, size).data, 256);
 
   const gif = GIFEncoder();
-  for (let i = 0; i < frames; i++) {
-    const t = i / (frames - 1);
-    drawFrame(ctx, sc, t);
+  const total = posterFrames + frames;
+  let written = 0;
+  const writeFrame = () => {
     const data = ctx.getImageData(0, 0, size, size).data;
     const index = applyPalette(data, palette);
-    gif.writeFrame(index, size, size, { palette: i === 0 ? palette : undefined, delay });
-    opts.onProgress?.((i + 1) / frames);
+    gif.writeFrame(index, size, size, { palette: written === 0 ? palette : undefined, delay });
+    written++;
+    opts.onProgress?.(written / total);
+  };
+
+  // Poster hold: the resolved mark, before the animation runs.
+  for (let i = 0; i < posterFrames; i++) {
+    if (i === 0) drawFrame(ctx, sc, 1, watermark); // identical each frame; draw once
+    writeFrame();
+  }
+
+  for (let i = 0; i < frames; i++) {
+    const t = i / (frames - 1);
+    drawFrame(ctx, sc, t, watermark);
+    writeFrame();
     // Yield so the UI can paint progress and the tab stays responsive.
     if (i % 4 === 0) await new Promise((r) => setTimeout(r, 0));
   }
