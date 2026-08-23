@@ -18,7 +18,7 @@
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { BUILTIN_MARKS, type SigilRecipe, type SigilStyle } from '../../shared/sigil';
 import { composeMark } from './sigilCompose';
-import { buildSigilSvg } from './sigilRaster';
+import { buildSigilSvg, sigilSvgDataUrl } from './sigilRaster';
 
 const NS = 'http://www.w3.org/2000/svg';
 const INSET = 14, SCALE = 0.72; // matches buildSigilSvg's mark group
@@ -59,7 +59,16 @@ function sampleVector(recipe: SigilRecipe, n: number): { x: number; y: number }[
   const m = BUILTIN_MARKS.find((x) => x.id === recipe.builtin) ?? BUILTIN_MARKS[0]!;
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 100 100');
-  svg.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden;left:-9999px');
+  // Must be a REAL, laid-out box. Firefox only computes path geometry
+  // (getTotalLength / getPointAtLength / isPointInFill) for elements that have
+  // actually been laid out — on a 0x0 or display:none SVG it throws
+  // NS_ERROR_FAILURE, which is what broke GIF export there. Chromium computes
+  // it lazily without layout, so this failed only in Firefox. Park it offscreen
+  // at full size instead of collapsing it. (SigilStage samples from its live,
+  // on-screen SVG, which is why the preview always worked.)
+  svg.setAttribute('width', '100');
+  svg.setAttribute('height', '100');
+  svg.setAttribute('style', 'position:absolute;left:-9999px;top:-9999px;width:100px;height:100px;opacity:0;pointer-events:none');
   document.body.appendChild(svg);
   try {
     if (recipe.points === 'filled') {
@@ -142,7 +151,7 @@ async function buildScene(recipe: SigilRecipe, size: number): Promise<Scene> {
   const imageMode = recipe.source === 'image';
   const markImg = imageMode
     ? await loadImage(recipe.imageUrl)
-    : await loadImage(URL.createObjectURL(new Blob([buildSigilSvg(recipe, size, { background: false })], { type: 'image/svg+xml' })));
+    : await loadImage(sigilSvgDataUrl(buildSigilSvg(recipe, size, { background: false })));
 
   // Nearest-neighbour pairs for constellation (computed once, on the settled shape).
   const neighbours: [number, number][] = [];

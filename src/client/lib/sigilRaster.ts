@@ -80,19 +80,26 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * The mark SVG as a data: URL rather than a blob: URL. Both are same-origin in
+ * principle, but a blob: URL carries no headers for a browser to reason about
+ * and some (Firefox especially) treat an SVG drawn from one as tainting the
+ * canvas — which makes the very next toBlob/getImageData throw. A data: URL is
+ * unambiguously inline, so the canvas always stays clean.
+ * encodeURIComponent (not btoa) so non-ASCII in a composed monogram survives.
+ */
+export function sigilSvgDataUrl(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 /** Rasterize a recipe to a square PNG File (built-in / composed marks). */
 export async function rasterizeSigilToPng(recipe: SigilRecipe, size = 640): Promise<File> {
   const svg = buildSigilSvg(recipe, size);
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-  try {
-    const img = await loadImage(url);
-    const cnv = document.createElement('canvas'); cnv.width = size; cnv.height = size;
-    const ctx = cnv.getContext('2d')!;
-    ctx.drawImage(img, 0, 0, size, size);
-    const blob = await new Promise<Blob | null>((res) => cnv.toBlob(res, 'image/png'));
-    if (!blob) throw new Error('rasterize produced no image');
-    return new File([blob], 'sigil.png', { type: 'image/png' });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  const img = await loadImage(sigilSvgDataUrl(svg));
+  const cnv = document.createElement('canvas'); cnv.width = size; cnv.height = size;
+  const ctx = cnv.getContext('2d')!;
+  ctx.drawImage(img, 0, 0, size, size);
+  const blob = await new Promise<Blob | null>((res) => cnv.toBlob(res, 'image/png'));
+  if (!blob) throw new Error('rasterize produced no image');
+  return new File([blob], 'sigil.png', { type: 'image/png' });
 }

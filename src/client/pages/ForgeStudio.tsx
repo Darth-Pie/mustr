@@ -106,6 +106,7 @@ export default function ForgeStudio() {
       // static art (Discord embeds, OG images). Image sigils reuse their upload.
       // Non-fatal: if it fails, we still save the recipe (art falls back to the logo).
       let pngUrl = '';
+      let artError = '';
       try {
         if (recipe.source === 'image') {
           pngUrl = recipe.imageUrl;
@@ -114,14 +115,22 @@ export default function ForgeStudio() {
           const res = await api.upload<{ url: string }>('/media/branding', file);
           pngUrl = res.url;
         }
-      } catch {
+      } catch (e) {
+        // Non-fatal — the recipe still saves — but never silent: without this
+        // PNG every static-art surface (Discord embed crest, OG image) quietly
+        // shows nothing, which is indistinguishable from "the feature is broken".
         pngUrl = '';
+        artError = e instanceof Error ? e.message : String(e);
+        console.error('Sigil static art failed to render/upload:', e);
       }
       await save({ enabled, recipe, pngUrl });
+      const base = enabled
+        ? 'Saved. Your sigil now plays once when a visitor loads the site.'
+        : 'Saved. Turn on “Play on site load” to show it as your boot splash — it is also what enables the Discord embed crest.';
       setMsg(
-        enabled
-          ? 'Saved. Your sigil now plays once when a visitor loads the site.'
-          : 'Saved. Turn on “Play on site load” to show it as your boot splash.',
+        artError
+          ? `${base} But its static image could not be generated (${artError}), so Discord embeds and link previews will not show the crest.`
+          : base,
       );
     } catch {
       setMsg('Could not save. Please try again.');
@@ -145,8 +154,12 @@ export default function ForgeStudio() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
       setMsg('Downloaded your animated sigil (GIF).');
-    } catch {
-      setMsg('Could not render the GIF — try a built-in or composed mark.');
+    } catch (e) {
+      // Report what actually went wrong. The old blanket message ("try a
+      // built-in or composed mark") sent debugging in the wrong direction when
+      // the real fault was a browser canvas/geometry difference.
+      console.error('GIF export failed:', e);
+      setMsg(`Could not render the GIF: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setExporting(false);
     }
