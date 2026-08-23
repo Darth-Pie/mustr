@@ -550,14 +550,19 @@ app.get('/legal', async (c) => {
  * mustr.gg marketing: the public "honest hosting & costs" About page, with a live
  * free-tier estimator. First-party self-contained HTML (its own inline script), so
  * it's a real page rather than a sanitized layout module. This is mustr.gg-only
- * marketing — like /legal, it isn't part of a buyer's deployment.
+ * marketing — like /product, it isn't part of a buyer's deployment.
  */
-app.get('/about', async (c) => {
+app.get('/about', async (c, next) => {
   const host = new URL(c.req.url).hostname;
-  // On app.mustr.gg (any *.mustr.gg non-marketing host) bounce to the marketing
-  // apex, whose /about carries the full site nav. Buyers (non-*.mustr.gg) still
-  // serve their own copy to their members.
-  if (!isMarketingHost(host) && host.toLowerCase().endsWith('.mustr.gg')) return c.redirect('https://mustr.gg/about', 302);
+  // Host-gated exactly like /product: the copy pitches *mustr's* hosting, so a
+  // buyer's install must never serve it to their members. app.mustr.gg (any
+  // *.mustr.gg non-marketing host) bounces to the marketing apex, whose /about
+  // carries the full site nav; every other host falls through to the app as if
+  // the route didn't exist.
+  if (!isMarketingHost(host)) {
+    if (host.toLowerCase().endsWith('.mustr.gg')) return c.redirect('https://mustr.gg/about', 302);
+    return next();
+  }
   const accent = await loadThemeAccent(c.env);
   return c.html(aboutPageHtml(accent), 200, { 'Cache-Control': 'public, max-age=300' });
 });
