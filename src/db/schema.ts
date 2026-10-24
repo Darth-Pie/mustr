@@ -1,6 +1,7 @@
 import { sqliteTable, text, integer, index, uniqueIndex, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import type { HangarItem } from '../shared/hangar';
+import type { Gear } from '../shared/wow';
 
 const now = sql`(unixepoch())`;
 
@@ -161,6 +162,105 @@ export const scVerifications = sqliteTable('sc_verifications', {
   orgVisible: integer('org_visible', { mode: 'boolean' }),
   inOrg: integer('in_org', { mode: 'boolean' }),
 });
+
+/* ------------------------------------------------------------------ *
+ * World of Warcraft module
+ *
+ * Battle.net-linked characters and what mustr saw happen to them. Blizzard's
+ * API terms cap how long its data may be kept unless each character's status
+ * is re-checked, so these rows are deleted on a failed status check, on unlink,
+ * and with the member (cascade). See server/wow/ and the module spec.
+ * ------------------------------------------------------------------ */
+
+/**
+ * A member's linked Battle.net account. `bnetId` is unique so one account can't
+ * be linked by two members. The Battle.net sign-in token is never stored.
+ */
+export const wowLinks = sqliteTable('wow_links', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  bnetId: text('bnet_id').notNull().unique(),
+  battletag: text('battletag').notNull(),
+  linkedAt: integer('linked_at').notNull().default(now),
+});
+
+/**
+ * A character from a linked account. `followed = false` rows are the ones listed
+ * at link time but not chosen; the hourly cleanup removes them after a day.
+ * `baselineLevel` stays NULL until the sweep's first check records it.
+ */
+export const wowCharacters = sqliteTable(
+  'wow_characters',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    region: text('region', { enum: ['us', 'eu', 'kr', 'tw'] }).notNull(),
+    blizzardId: integer('blizzard_id').notNull(),
+    realmSlug: text('realm_slug').notNull(),
+    realmName: text('realm_name').notNull(),
+    name: text('name').notNull(),
+    classId: integer('class_id').notNull(),
+    className: text('class_name').notNull(),
+    raceName: text('race_name').notNull(),
+    faction: text('faction', { enum: ['ALLIANCE', 'HORDE'] }).notNull(),
+    level: integer('level').notNull(),
+    // Average item level of equipped gear; NULL until gear has been fetched.
+    itemLevel: integer('item_level'),
+    guildName: text('guild_name'),
+    // Equipped items at the last check, for spotting changes.
+    gear: text('gear', { mode: 'json' }).$type<Gear>(),
+    followed: integer('followed', { mode: 'boolean' }).notNull().default(false),
+    isMain: integer('is_main', { mode: 'boolean' }).notNull().default(false),
+    baselineLevel: integer('baseline_level'),
+    // Blizzard's last-logout time — the only clock its profile data carries.
+    lastLoginAt: integer('last_login_at'),
+    lastPolledAt: integer('last_polled_at'),
+    lastValidatedAt: integer('last_validated_at'),
+    // Consecutive daily status checks that came back "not found".
+    statusFailures: integer('status_failures').notNull().default(0),
+    createdAt: integer('created_at').notNull().default(now),
+  },
+  (t) => [
+    uniqueIndex('wow_characters_region_blizzard_idx').on(t.region, t.blizzardId),
+    index('wow_characters_poll_idx').on(t.followed, t.lastPolledAt),
+    index('wow_characters_user_idx').on(t.userId),
+  ],
+);
+
+/**
+ * One row per change mustr saw. The change happened between `sinceAt` (the
+ * previous logout) and `seenAt` (the logout that revealed it). A jump of several
+ * levels writes one `level` row per level, all with the same two times.
+ */
+export const wowTimeline = sqliteTable(
+  'wow_timeline',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    characterId: integer('character_id')
+      .notNull()
+      .references(() => wowCharacters.id, { onDelete: 'cascade' }),
+    kind: text('kind', {
+      enum: ['tracking_started', 'level', 'item', 'guild_join', 'guild_leave', 'badge'],
+    }).notNull(),
+    level: integer('level'),
+    itemId: integer('item_id'),
+    itemName: text('item_name'),
+    itemQuality: text('item_quality'),
+    itemLevel: integer('item_level'),
+    slot: text('slot'),
+    // 'first_rare' | 'first_epic' on the first item of that quality.
+    tag: text('tag'),
+    guildName: text('guild_name'),
+    badgeKey: text('badge_key'),
+    seenAt: integer('seen_at').notNull(),
+    sinceAt: integer('since_at'),
+    createdAt: integer('created_at').notNull().default(now),
+  },
+  (t) => [index('wow_timeline_character_idx').on(t.characterId, t.seenAt)],
+);
 
 /* ------------------------------------------------------------------ *
  * Hierarchy
@@ -558,6 +658,10 @@ export const medals = sqliteTable(
     // this many events (10, 50, 100, …). NULL = not an activity medal. The
     // auto-grant sweep lives in server/medals/activity.ts.
     autoGrantAttendance: integer('auto_grant_attendance'),
+    // Game-data medals: when set (e.g. 'wow:first_epic'), the World of Warcraft
+    // sweep grants this medal when a member's character earns that badge. NULL =
+    // not a game-data medal. See server/medals/wow.ts.
+    autoGrantRule: text('auto_grant_rule'),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: integer('created_at').notNull().default(now),
   },
