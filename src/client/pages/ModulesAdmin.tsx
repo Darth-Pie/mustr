@@ -43,9 +43,15 @@ const MODULES: ModuleDef[] = [
     description:
       'A Gallery page of photo and video albums, each shown to everyone, to members, or to one role.',
   },
+  {
+    key: 'wow',
+    label: 'World of Warcraft',
+    description:
+      'Members link Battle.net and the guild gets a leveling race: character timelines, charts, records, Discord milestones and medals.',
+  },
 ];
 
-const NO_MODULES: ModuleFlags = { starcitizen: false, gallery: false };
+const NO_MODULES: ModuleFlags = { starcitizen: false, gallery: false, wow: false };
 
 /**
  * One collapsible option set. `<details>` gives us the open/close behaviour,

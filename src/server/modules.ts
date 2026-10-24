@@ -13,12 +13,14 @@ import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import * as s from '../db/schema';
 import type { Env } from './env';
+import { EMPTY_WOW_CONFIG, WOW_REGIONS, type WowConfig, type WowRegion } from '../shared/wow';
 
 export const MODULES_KEY = 'modules';
 
 export interface ModuleFlags {
   starcitizen: boolean;
   gallery: boolean;
+  wow: boolean;
 }
 
 type DB = ReturnType<typeof drizzle<typeof schema>>;
@@ -33,13 +35,13 @@ export async function loadModules(env: Env, database?: DB): Promise<ModuleFlags>
   } catch {
     // No settings row/table yet → everything off.
   }
-  return { starcitizen: stored.starcitizen === true, gallery: stored.gallery === true };
+  return { starcitizen: stored.starcitizen === true, gallery: stored.gallery === true, wow: stored.wow === true };
 }
 
 /** Sanitise an incoming flags payload to exactly the known booleans. */
 export function cleanModuleFlags(raw: unknown): ModuleFlags {
   const o = (raw ?? {}) as Record<string, unknown>;
-  return { starcitizen: o.starcitizen === true, gallery: o.gallery === true };
+  return { starcitizen: o.starcitizen === true, gallery: o.gallery === true, wow: o.wow === true };
 }
 
 /* ------------------------------------------------------------------ *
@@ -136,4 +138,57 @@ export function cleanGalleryConfig(raw: unknown): GalleryConfig {
     heroTitle: (typeof o.heroTitle === 'string' ? o.heroTitle : '').trim().slice(0, 80),
     heroTagline: (typeof o.heroTagline === 'string' ? o.heroTagline : '').trim().slice(0, 200),
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * World of Warcraft module config — the site's Battle.net API client, region
+ * and Blizzard data section, plus the server-owned verification and last-error
+ * fields. Own settings key, like SC and Gallery. The secret lives in D1 under
+ * the same accepted trade as the Discord secret (see config.ts) and is never
+ * returned to a browser (publicWowConfig).
+ * ------------------------------------------------------------------ */
+
+export const WOW_KEY = 'wow';
+
+export async function loadWowConfig(env: Env, database?: DB): Promise<WowConfig> {
+  const dbi = database ?? drizzle(env.DB, { schema });
+  let o: Record<string, unknown> = {};
+  try {
+    const row = await dbi.query.settings.findFirst({ where: eq(s.settings.key, WOW_KEY) });
+    if (row?.value && typeof row.value === 'object') o = row.value as Record<string, unknown>;
+  } catch {
+    // No settings row/table yet → unconfigured.
+  }
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const num = (v: unknown) => (typeof v === 'number' ? v : null);
+  return {
+    clientId: str(o.clientId),
+    clientSecret: str(o.clientSecret),
+    region: WOW_REGIONS.includes(o.region as WowRegion) ? (o.region as WowRegion) : EMPTY_WOW_CONFIG.region,
+    // A stored blank falls back to the built-in default, so publishing Forever's
+    // namespace in code reaches installs that never typed one.
+    namespace: str(o.namespace) || EMPTY_WOW_CONFIG.namespace,
+    verifiedAt: num(o.verifiedAt),
+    lastError: typeof o.lastError === 'string' ? o.lastError : null,
+    lastErrorAt: num(o.lastErrorAt),
+  };
+}
+
+export async function saveWowConfig(env: Env, cfg: WowConfig, updatedBy: number | null): Promise<void> {
+  await drizzle(env.DB, { schema })
+    .insert(s.settings)
+    .values({ key: WOW_KEY, value: cfg, updatedBy })
+    .onConflictDoUpdate({
+      target: s.settings.key,
+      set: { value: cfg, updatedBy, updatedAt: Math.floor(Date.now() / 1000) },
+    });
+}
+
+/**
+ * The config, only when the sweep and member features may run: the module is on,
+ * Test connection has succeeded for these credentials, and a namespace is set.
+ */
+export async function wowReady(env: Env, database?: DB): Promise<WowConfig | null> {
+  const [mods, cfg] = await Promise.all([loadModules(env, database), loadWowConfig(env, database)]);
+  return mods.wow && cfg.verifiedAt !== null && cfg.namespace !== '' ? cfg : null;
 }

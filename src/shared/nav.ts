@@ -44,7 +44,7 @@ export interface BuiltinTarget {
    * unless that module is enabled, so a menu built while the gallery was on
    * doesn't leave a dead link behind when it's switched off.
    */
-  module?: 'starcitizen' | 'gallery';
+  module?: 'starcitizen' | 'gallery' | 'wow';
 }
 
 /** The fixed destinations the app always ships. `key` is what a link stores. */
@@ -65,6 +65,10 @@ export const BUILTIN_TARGETS: Record<string, BuiltinTarget> = {
   // what a given viewer actually gets. The link is additionally hidden when the
   // gallery module is off — see SiteNav, which gates on the module flag.
   gallery: { key: 'gallery', path: '/gallery', label: 'Gallery', public: true, module: 'gallery' },
+  // The World of Warcraft level race. Hidden unless the module is on; anonymous
+  // visibility follows the 'leveling' page-access setting (like News), so no
+  // static `public` flag.
+  leveling: { key: 'leveling', path: '/leveling', label: 'Leveling', module: 'wow' },
   admin: { key: 'admin', path: '/admin', label: 'Admin', admin: true },
 };
 
@@ -234,6 +238,8 @@ export function defaultNavConfig(navPages: { slug: string; title: string | null 
     // on (SiteNav gates it on the flag), so enabling the module surfaces the
     // link without an admin having to go and build one.
     { id: newNavId(), type: 'link', label: '', kind: 'builtin', target: 'gallery' },
+    // Same for the World of Warcraft level race.
+    { id: newNavId(), type: 'link', label: '', kind: 'builtin', target: 'leveling' },
     ...navPages.map((p) => ({
       id: newNavId(),
       type: 'link' as const,

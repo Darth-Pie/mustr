@@ -11,9 +11,10 @@ import { api } from './api';
 export interface ModuleFlags {
   starcitizen: boolean;
   gallery: boolean;
+  wow: boolean;
 }
 
-const DEFAULT: ModuleFlags = { starcitizen: false, gallery: false };
+const DEFAULT: ModuleFlags = { starcitizen: false, gallery: false, wow: false };
 
 let cache: ModuleFlags | null = null;
 let inflight: Promise<ModuleFlags> | null = null;

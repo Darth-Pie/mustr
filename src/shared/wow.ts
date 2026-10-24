@@ -162,3 +162,81 @@ export interface LevelRow {
   seenAt: number;
   sinceAt: number | null;
 }
+
+/* ------------------------------------------------------------------ *
+ * Module config — the site's own Battle.net API client
+ *
+ * Stored in settings['wow']. Each site registers its own client at
+ * develop.battle.net, as it does its own Discord app, so the operator is
+ * Blizzard's licensee. The secret never goes back to a browser.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Blizzard's profile namespace for WoW: Forever, without the region suffix.
+ * Unpublished as of 2026-10-24; empty means "not set" and keeps the sweep idle.
+ * Set it here once Blizzard documents it. Admins can enter 'profile-classic1x'
+ * meanwhile to test against Classic Era.
+ */
+export const DEFAULT_WOW_NAMESPACE = '';
+
+export interface WowConfig {
+  clientId: string;
+  clientSecret: string;
+  region: WowRegion;
+  namespace: string;
+  /** When Test connection last succeeded with these exact credentials. */
+  verifiedAt: number | null;
+  /** The last error the sweep or Test connection hit, for the admin card. */
+  lastError: string | null;
+  lastErrorAt: number | null;
+}
+
+export const EMPTY_WOW_CONFIG: WowConfig = {
+  clientId: '',
+  clientSecret: '',
+  region: 'us',
+  namespace: DEFAULT_WOW_NAMESPACE,
+  verifiedAt: null,
+  lastError: null,
+  lastErrorAt: null,
+};
+
+const NAMESPACE_RE = /^[a-z0-9-]{1,64}$/;
+
+/**
+ * Sanitise an admin's edit. A blank secret keeps the stored one (the form never
+ * sees it). Any change to what Blizzard is asked with drops the verification,
+ * so the module can't stay switched on with credentials nobody has tested.
+ * Status fields are server-owned and never read from the input.
+ */
+export function cleanWowConfig(raw: unknown, previous: WowConfig): WowConfig {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const clientId = 'clientId' in o ? text(o.clientId, 128) : previous.clientId;
+  const secretIn = text(o.clientSecret, 256);
+  const clientSecret = secretIn || previous.clientSecret;
+  const region = WOW_REGIONS.includes(o.region as WowRegion) ? (o.region as WowRegion) : 'region' in o ? 'us' : previous.region;
+  const nsIn = 'namespace' in o ? text(o.namespace, 1000).toLowerCase() : previous.namespace;
+  const namespace = nsIn === '' || NAMESPACE_RE.test(nsIn) ? nsIn : '';
+  const unchanged =
+    clientId === previous.clientId &&
+    clientSecret === previous.clientSecret &&
+    region === previous.region &&
+    namespace === previous.namespace;
+  return {
+    clientId,
+    clientSecret,
+    region,
+    namespace,
+    verifiedAt: unchanged ? previous.verifiedAt : null,
+    lastError: previous.lastError,
+    lastErrorAt: previous.lastErrorAt,
+  };
+}
+
+export type PublicWowConfig = Omit<WowConfig, 'clientSecret'> & { hasSecret: boolean };
+
+export function publicWowConfig(cfg: WowConfig): PublicWowConfig {
+  const { clientSecret, ...rest } = cfg;
+  return { ...rest, hasSecret: clientSecret.length > 0 };
+}

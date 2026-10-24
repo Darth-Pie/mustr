@@ -18,6 +18,7 @@ const PAGES: { key: BuiltinContentPage; label: string; path: string; hint: strin
   { key: 'news', label: 'News', path: '/news', hint: 'The news feed and individual posts.' },
   { key: 'roster', label: 'Roster', path: '/roster', hint: 'The member roster and leadership chart.' },
   { key: 'events', label: 'Events', path: '/events', hint: 'The events page. Members still need the events.view permission.' },
+  { key: 'leveling', label: 'Leveling', path: '/leveling', hint: 'The World of Warcraft level race. Needs the module on.' },
 ];
 
 export default function BuiltinPagesAdmin() {

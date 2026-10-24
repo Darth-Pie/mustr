@@ -13,6 +13,7 @@ import {
   loadGalleryConfig,
   cleanGalleryConfig,
   GALLERY_KEY,
+  loadWowConfig,
 } from '../modules';
 import { loadFooter, FOOTER_KEY } from '../footer';
 import { cleanFooter } from '../../shared/footer';
@@ -84,6 +85,11 @@ settings.get('/modules', async (c) => {
 settings.put('/modules', requirePermission('settings.manage'), async (c) => {
   const body = await c.req.json<{ modules?: unknown }>();
   const clean = cleanModuleFlags(body.modules);
+  // World of Warcraft can't be switched on until its Battle.net key has been
+  // tested — otherwise members would see Link buttons that can only fail.
+  if (clean.wow && !(await loadModules(c.env, db(c.env))).wow && (await loadWowConfig(c.env, db(c.env))).verifiedAt === null) {
+    return c.json({ error: 'Test the Battle.net connection in the World of Warcraft settings first.' }, 400);
+  }
   const viewer = c.get('viewer')!;
   await db(c.env)
     .insert(s.settings)
