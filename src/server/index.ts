@@ -75,6 +75,7 @@ import { loadSeo, renderHead } from './seo';
 import tokensRoutes from './routes/tokens';
 import orgChartRoutes from './routes/orgchart';
 import tournamentsRoutes from './routes/tournaments';
+import wowRoutes from './routes/wow';
 import allianceRoutes from './routes/alliance';
 import { escapeHtml, renderLayoutBody } from './pages/render';
 
@@ -474,6 +475,7 @@ app.route('/api/setup', setupRoutes);
 app.route('/api/snapshots', snapshotsRoutes);
 app.route('/api/attendance', attendanceRoutes);
 app.route('/api/tournaments', tournamentsRoutes);
+app.route('/api/wow', wowRoutes);
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'mustr' }));
 

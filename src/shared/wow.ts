@@ -240,3 +240,57 @@ export function publicWowConfig(cfg: WowConfig): PublicWowConfig {
   const { clientSecret, ...rest } = cfg;
   return { ...rest, hasSecret: clientSecret.length > 0 };
 }
+
+/* ------------------------------------------------------------------ *
+ * API shapes — what /api/wow returns to the client
+ * ------------------------------------------------------------------ */
+
+export interface CharacterCard {
+  id: number;
+  name: string;
+  realmName: string;
+  classId: number;
+  className: string;
+  raceName: string;
+  level: number;
+  itemLevel: number | null;
+  guildName: string | null;
+  isMain: boolean;
+  lastLoginAt: number | null;
+}
+
+export interface TimelineEntry {
+  kind: 'tracking_started' | 'level' | 'item' | 'guild_join' | 'guild_leave' | 'badge';
+  level: number | null;
+  itemName: string | null;
+  itemQuality: ItemQuality | null;
+  itemLevel: number | null;
+  slot: string | null;
+  tag: 'first_rare' | 'first_epic' | null;
+  guildName: string | null;
+  badgeKey: BadgeKey | null;
+  seenAt: number;
+  sinceAt: number | null;
+}
+
+/** A character on the member's own account, for the "choose characters" list. */
+export interface AccountCandidate {
+  id: number;
+  name: string;
+  realmName: string;
+  className: string;
+  level: number;
+  followed: boolean;
+  isMain: boolean;
+}
+
+export interface MemberWowData {
+  linked: boolean;
+  /** Only for the member themselves. */
+  battletag: string | null;
+  characters: CharacterCard[];
+  /** Newest first, keyed by character id. */
+  timeline: Record<number, TimelineEntry[]>;
+  /** Only for the member themselves. */
+  candidates: AccountCandidate[];
+}
