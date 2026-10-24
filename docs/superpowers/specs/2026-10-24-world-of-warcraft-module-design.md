@@ -79,9 +79,10 @@ From Blizzard (Developer API Terms of Use, Battle.net docs and forums, checked 2
 - Terms, restriction 2: players can't be charged to download an app or to use its features.
 - Terms 2(m): no Blizzard trademark in the app's title or web address.
 
-To verify during implementation: the exact field names in Classic profile responses. The first
-plan task captures real responses with the owner's Battle.net key and saves them as test fixtures
-(with names changed).
+To verify during implementation: the exact field names in Classic profile responses. The parsers
+are first written and tested against sample responses in Blizzard's documented shape. Once the
+owner's Battle.net key exists, a capture script saves real Classic responses (with names changed)
+as extra fixtures, and the parsers must pass on those too.
 
 ## Design
 
@@ -97,9 +98,10 @@ plan task captures real responses with the owner's Battle.net key and saves them
     `profile-classic1x` to test.
 - **Test connection** fetches an app token and reports success or Blizzard's error. The module can't
   be switched on until a test succeeds.
-- When the module is off: every WoW route returns 404, the menu item and profile section are hidden,
-  and the sweep, Discord posts and WoW medal awards stop. Stored data stays, subject to the retention
-  rule below.
+- When the module is off: every member-facing WoW route returns 404, the menu item and profile
+  section are hidden, and the sweep, Discord posts and WoW medal awards stop. The admin settings
+  routes stay available, because the key has to be set and tested before the module can be switched
+  on. Stored data stays, subject to the retention rule below.
 - Each site registers its own Battle.net client at develop.battle.net, as it does its own Discord
   app. That keeps each operator as the licensee and keeps WoW features out of anything paid.
 
@@ -201,8 +203,10 @@ member, linking is refused.
 
 - A new cron trigger, `2-59/5 * * * *`, gives the sweep its own 50-request budget, separate from
   the Discord reconcile. It runs whether or not the Discord bot is configured.
-- Each run spends at most 40 Blizzard calls (`WOW_CALL_BUDGET`), including any token refresh.
-- It picks followed characters by oldest `last_polled_at`. For each one it fetches the summary.
+- Each run spends at most 40 Blizzard calls (`WOW_CALL_BUDGET`), including any token refresh, and
+  makes at most 8 Discord posts (`WOW_POST_BUDGET`), since both count toward the same 50.
+- It first spends up to 10 calls on the daily status checks (see retention), then picks followed
+  characters by oldest `last_polled_at`. For each one it fetches the summary.
   It fetches equipment only when `last_login_at` changed or the character has no gear yet.
 - A 100-character guild refreshes about every 15 to 25 minutes.
 - A 429 or 5xx from Blizzard ends the run; the next run carries on. A 404 on one character skips
@@ -255,14 +259,15 @@ Worked out on each request from `level` rows. That's cheap at guild size, so not
 
 ### Data retention and Blizzard compliance
 
-- The hourly cron gains a status pass: up to 40 followed characters whose `last_validated_at` is
-  more than a day old get a status check.
+- Each sweep run starts with a status pass: up to 10 followed characters whose `last_validated_at`
+  is more than a day old get a status check. Keeping it in the sweep keeps every Blizzard call in
+  one budget; the hourly cron's own budget is already shared with recurring-event Discord calls.
   - Valid with a matching ID: `last_validated_at` is updated and `status_failures` reset.
   - `is_valid` false or a changed ID: the character and its timeline are deleted at once.
   - 404: `status_failures` goes up by one, and the character is deleted on the third consecutive
     failure. A single 404 can mean the player turned off third-party sharing, or a temporary error.
-- A DB-only cleanup, which also runs while the module is off, deletes characters not validated in
-  30 days and unfollowed characters older than a day.
+- A DB-only cleanup in the hourly cron, which also runs while the module is off, deletes characters
+  not validated in 30 days and unfollowed characters older than a day.
 - Unlinking, deleting a member, or deleting a character deletes its rows straight away (cascade).
 
 ### Web routes
@@ -318,7 +323,8 @@ All under `/api/wow`, all 404 when the module is off.
   - `wowFirst`: a character is the guild's first to reach a tenth level, or shares it.
     Placeholders: `{member}`, `{character}`, `{level}`.
 - Limits:
-  - At most one post per character per check.
+  - At most one post per character per check. When both apply, `wowFirst` wins if it's switched on.
+  - At most 8 posts per sweep run, medal posts included; anything beyond that is skipped.
   - Nothing posts from a first check.
   - Nothing posts for a change whose `seen_at` is more than 24 hours old.
 - Badges post through the existing `medalAward` announcement when they become medals.
