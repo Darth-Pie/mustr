@@ -73,7 +73,7 @@
 
   // Discord role-reconcile sweep (*/5) + tenure-medal sweep (hourly, minute 7).
   "triggers": {
-    "crons": ["*/5 * * * *", "7 * * * *"]
+    "crons": ["*/5 * * * *", "7 * * * *", "2-59/5 * * * *"]
   },
 
   "observability": {

@@ -76,6 +76,7 @@ import tokensRoutes from './routes/tokens';
 import orgChartRoutes from './routes/orgchart';
 import tournamentsRoutes from './routes/tournaments';
 import wowRoutes from './routes/wow';
+import { WOW_CRON, cleanupWowData, runWowSweep } from './wow/poll';
 import allianceRoutes from './routes/alliance';
 import { escapeHtml, renderLayoutBody } from './pages/render';
 
@@ -687,6 +688,9 @@ app.all('*', async (c) => {
  *  - hourly       → the tenure-medal sweep. Tenure only changes on a daily
  *                   boundary, so a per-hour scan is plenty; new members still
  *                   get their tenure medals instantly at login.
+ *  - every 5 min,  → the World of Warcraft character sweep (wow/poll.ts). Its
+ *    offset by 2      own trigger, so its Blizzard calls get their own request
+ *                     budget. No-ops unless the module is on and its key tested.
  * ------------------------------------------------------------------ */
 
 const TENURE_CRON = '7 * * * *';
@@ -695,6 +699,15 @@ export default {
   fetch: app.fetch,
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     const database = db(env);
+
+    if (controller.cron === WOW_CRON) {
+      ctx.waitUntil(
+        runWowSweep(env)
+          .then(({ events: _events, ...r }) => console.log('WoW sweep:', JSON.stringify(r)))
+          .catch((err) => console.error('WoW sweep failed', err)),
+      );
+      return;
+    }
 
     if (controller.cron === TENURE_CRON) {
       // DB-only — runs regardless of whether the bot is configured.
@@ -708,6 +721,13 @@ export default {
         awardActivityMedals(database)
           .then((r) => console.log('Hourly activity award:', r.awarded.length, 'granted'))
           .catch((err) => console.error('Activity award failed', err)),
+      );
+      // World of Warcraft data retention — DB-only, runs even with the module
+      // off so stored Blizzard data never outlives its 30-day limit.
+      ctx.waitUntil(
+        cleanupWowData(database, Math.floor(Date.now() / 1000))
+          .then((n) => n && console.log('WoW cleanup removed', n, 'characters'))
+          .catch((err) => console.error('WoW cleanup failed', err)),
       );
       // Roll ended recurring events forward to their next occurrence. Safe with
       // or without the bot (the Discord sync no-ops when it's absent).
