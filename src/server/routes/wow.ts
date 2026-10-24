@@ -18,11 +18,13 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
 import { db, requireAuth, requirePermission } from '../middleware/auth';
-import { loadModules, loadWowConfig } from '../modules';
+import { loadModules, loadWowConfig, saveWowConfig } from '../modules';
 import { newState } from '../auth/discord';
-import { authorizeUrl, exchangeCode, fetchAccountCharacters, fetchUserInfo } from '../wow/bnet';
+import { appToken, authorizeUrl, BnetError, exchangeCode, fetchAccountCharacters, fetchUserInfo } from '../wow/bnet';
+import { settingsTokenStore } from '../wow/poll';
 import { planFollow } from '../wow/follow';
 import { createWowMedals } from '../medals/wow';
+import { cleanWowConfig, publicWowConfig } from '../../shared/wow';
 import type {
   AccountCandidate,
   BadgeKey,
@@ -270,6 +272,49 @@ wow.get('/members/:userId', requireWowModule, requireAuth, async (c) => {
 /* ------------------------------------------------------------------ *
  * Admin — reachable while the module is off (no requireWowModule)
  * ------------------------------------------------------------------ */
+
+wow.get('/admin/config', requirePermission('settings.manage'), async (c) => {
+  const cfg = await loadWowConfig(c.env, db(c.env));
+  return c.json({ wow: publicWowConfig(cfg), redirectUri: callbackUrl(c.req.url) });
+});
+
+wow.put('/admin/config', requirePermission('settings.manage'), async (c) => {
+  const body = await c.req.json<{ wow?: unknown }>().catch(() => ({}) as { wow?: unknown });
+  const prev = await loadWowConfig(c.env, db(c.env));
+  const next = cleanWowConfig(body.wow, prev);
+  await saveWowConfig(c.env, next, c.get('viewer')!.id);
+  return c.json({ wow: publicWowConfig(next) });
+});
+
+/**
+ * Test connection: ask Blizzard for a fresh app token with the saved key. Success
+ * marks the config verified (the module may now be switched on) and replaces the
+ * sweep's cached token, so a changed key takes effect at once.
+ */
+wow.post('/admin/test', requirePermission('settings.manage'), async (c) => {
+  const database = db(c.env);
+  const cfg = await loadWowConfig(c.env, database);
+  const now = Math.floor(Date.now() / 1000);
+  if (!cfg.clientId || !cfg.clientSecret) return c.json({ ok: false, error: 'Enter the client ID and secret first.' });
+  if (!cfg.namespace) return c.json({ ok: false, error: "Enter Blizzard's data section first." });
+  const cache = settingsTokenStore(database);
+  try {
+    let fresh: { token: string; expiresAt: number } | null = null;
+    await appToken(cfg, { get: async () => null, set: async (v) => void (fresh = v) }, now);
+    if (fresh) await cache.set(fresh);
+    await saveWowConfig(c.env, { ...cfg, verifiedAt: now, lastError: null, lastErrorAt: null }, c.get('viewer')!.id);
+    return c.json({ ok: true, verifiedAt: now });
+  } catch (err) {
+    const error =
+      err instanceof BnetError && (err.status === 400 || err.status === 401)
+        ? 'Blizzard refused the client ID or secret.'
+        : err instanceof Error
+          ? err.message
+          : 'Could not reach Blizzard.';
+    await saveWowConfig(c.env, { ...cfg, verifiedAt: null, lastError: error, lastErrorAt: now }, c.get('viewer')!.id);
+    return c.json({ ok: false, error });
+  }
+});
 
 /** Create the five starter WoW medals (one per badge) that don't exist yet. */
 wow.post('/admin/medals', requirePermission('medals.manage'), async (c) => {

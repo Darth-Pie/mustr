@@ -15,6 +15,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import Switch from '../components/Switch';
+import WowSettings from '../components/WowSettings';
 import {
   clearModulesCache,
   clearScConfigCache,
@@ -330,6 +331,17 @@ export default function ModulesAdmin() {
           )}
         </div>
       )}
+
+      {/* Always shown: the Battle.net key must be saved and tested before the
+          World of Warcraft module can be switched on. */}
+      <div className="module-settings">
+        <OptionSet
+          title="World of Warcraft"
+          hint={flags.wow ? 'Battle.net API client' : 'Set up and test the Battle.net key, then switch the module on'}
+        >
+          <WowSettings moduleOn={flags.wow} />
+        </OptionSet>
+      </div>
     </section>
   );
 }

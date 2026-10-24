@@ -7768,3 +7768,21 @@ a.button.primary { background: var(--color-accent); color: var(--color-accent-te
 .alliance-standings th, .alliance-standings td { text-align: left; padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--color-border); }
 .alliance-standings th:first-child, .alliance-standings td:first-child { width: 2rem; color: var(--color-muted); }
 .entrant-origin { font-size: 0.72rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: color-mix(in srgb, var(--color-accent) 16%, transparent); color: var(--color-accent); white-space: nowrap; }
+
+/* ------------------------------------------------------------------ *
+ * World of Warcraft module
+ * ------------------------------------------------------------------ */
+
+.wow-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.wow-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.wow-redirect code {
+  word-break: break-all;
+}
