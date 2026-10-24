@@ -17,11 +17,12 @@ import { createMiddleware } from 'hono/factory';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { AppContext } from '../env';
-import { db, requireAuth } from '../middleware/auth';
+import { db, requireAuth, requirePermission } from '../middleware/auth';
 import { loadModules, loadWowConfig } from '../modules';
 import { newState } from '../auth/discord';
 import { authorizeUrl, exchangeCode, fetchAccountCharacters, fetchUserInfo } from '../wow/bnet';
 import { planFollow } from '../wow/follow';
+import { createWowMedals } from '../medals/wow';
 import type {
   AccountCandidate,
   BadgeKey,
@@ -264,6 +265,15 @@ wow.get('/members/:userId', requireWowModule, requireAuth, async (c) => {
     candidates,
   };
   return c.json(body);
+});
+
+/* ------------------------------------------------------------------ *
+ * Admin — reachable while the module is off (no requireWowModule)
+ * ------------------------------------------------------------------ */
+
+/** Create the five starter WoW medals (one per badge) that don't exist yet. */
+wow.post('/admin/medals', requirePermission('medals.manage'), async (c) => {
+  return c.json({ created: await createWowMedals(db(c.env)) });
 });
 
 export default wow;

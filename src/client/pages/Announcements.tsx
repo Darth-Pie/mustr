@@ -12,8 +12,9 @@ import { api } from '../lib/api';
 import { useAction, Alerts } from '../lib/action';
 import Switch from '../components/Switch';
 import ColorPicker from '../components/ColorPicker';
+import { useModules } from '../lib/modules';
 
-type EventKey = 'medalAward' | 'warRecordAward' | 'promotion';
+type EventKey = 'medalAward' | 'warRecordAward' | 'promotion' | 'wowLevel' | 'wowFirst';
 
 interface Template {
   title?: string;
@@ -34,16 +35,31 @@ interface Channel {
   position: number;
 }
 
-const EVENTS: { key: EventKey; label: string; hint: string; placeholders: string[] }[] = [
+const EVENTS: { key: EventKey; label: string; hint: string; placeholders: string[]; module?: 'wow' }[] = [
   { key: 'medalAward', label: 'Medal awarded', hint: 'Posts when a member is awarded a medal.', placeholders: ['{member}', '{medal}', '{citation}'] },
   { key: 'warRecordAward', label: 'War record awarded', hint: 'Posts when a member earns a war record.', placeholders: ['{member}', '{record}', '{game}', '{citation}'] },
   { key: 'promotion', label: 'Promotion', hint: 'Posts when a member is promoted (website or /promote).', placeholders: ['{member}', '{rank}', '{by}'] },
+  {
+    key: 'wowLevel',
+    label: 'WoW level milestone',
+    hint: 'Posts when a character reaches a tenth level or level 60 (World of Warcraft module).',
+    placeholders: ['{member}', '{character}', '{level}', '{class}'],
+    module: 'wow',
+  },
+  {
+    key: 'wowFirst',
+    label: 'WoW guild first',
+    hint: "Posts when a character is the guild's first to reach a tenth level (World of Warcraft module).",
+    placeholders: ['{member}', '{character}', '{level}'],
+    module: 'wow',
+  },
 ];
 
 const DEFAULT_ACCENT = '#5865f2';
 
 export default function Announcements() {
   const [cfg, setCfg] = useState<Config | null>(null);
+  const modules = useModules();
   const [saved, setSaved] = useState('');
   const [channels, setChannels] = useState<Channel[]>([]);
   const [channelWarning, setChannelWarning] = useState<string | null>(null);
@@ -172,7 +188,7 @@ export default function Announcements() {
       {/* Per-event: on/off plus optional title/body/image overrides. */}
       <fieldset className="announce-events">
         <legend>Announce these events</legend>
-        {EVENTS.map((ev) => {
+        {EVENTS.filter((ev) => !ev.module || modules[ev.module]).map((ev) => {
           const tpl = cfg.templates[ev.key] ?? {};
           return (
             <div key={ev.key} className="announce-event-block">

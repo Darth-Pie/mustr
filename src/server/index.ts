@@ -77,6 +77,7 @@ import orgChartRoutes from './routes/orgchart';
 import tournamentsRoutes from './routes/tournaments';
 import wowRoutes from './routes/wow';
 import { WOW_CRON, cleanupWowData, runWowSweep } from './wow/poll';
+import { handleWowEvents } from './wow/events';
 import allianceRoutes from './routes/alliance';
 import { escapeHtml, renderLayoutBody } from './pages/render';
 
@@ -703,7 +704,13 @@ export default {
     if (controller.cron === WOW_CRON) {
       ctx.waitUntil(
         runWowSweep(env)
-          .then(({ events: _events, ...r }) => console.log('WoW sweep:', JSON.stringify(r)))
+          .then(async ({ events, ...r }) => {
+            console.log('WoW sweep:', JSON.stringify(r));
+            if (events.length) {
+              const h = await handleWowEvents(env, events, Math.floor(Date.now() / 1000));
+              console.log('WoW events:', JSON.stringify(h));
+            }
+          })
           .catch((err) => console.error('WoW sweep failed', err)),
       );
       return;

@@ -20,9 +20,9 @@ import type { Env } from '../env';
 import { type Embed } from './rest';
 import { discordClient } from '../config';
 
-export type AnnouncementEventKey = 'medalAward' | 'warRecordAward' | 'promotion';
+export type AnnouncementEventKey = 'medalAward' | 'warRecordAward' | 'promotion' | 'wowLevel' | 'wowFirst';
 
-export const ANNOUNCEMENT_EVENT_KEYS: AnnouncementEventKey[] = ['medalAward', 'warRecordAward', 'promotion'];
+export const ANNOUNCEMENT_EVENT_KEYS: AnnouncementEventKey[] = ['medalAward', 'warRecordAward', 'promotion', 'wowLevel', 'wowFirst'];
 
 /** Per-event customization. Any field left blank falls back to the built-in. */
 export interface AnnouncementTemplate {
@@ -52,11 +52,13 @@ export const PLACEHOLDERS: Record<AnnouncementEventKey, string[]> = {
   medalAward: ['{member}', '{medal}', '{citation}'],
   warRecordAward: ['{member}', '{record}', '{game}', '{citation}'],
   promotion: ['{member}', '{rank}', '{by}'],
+  wowLevel: ['{member}', '{character}', '{level}', '{class}'],
+  wowFirst: ['{member}', '{character}', '{level}'],
 };
 
 export const DEFAULT_ANNOUNCEMENTS: AnnouncementConfig = {
   channelId: null,
-  events: { medalAward: false, warRecordAward: false, promotion: false },
+  events: { medalAward: false, warRecordAward: false, promotion: false, wowLevel: false, wowFirst: false },
   accentColor: null,
   footer: null,
   imageUrl: null,
@@ -129,9 +131,13 @@ export type AnnounceEvent =
       gameName: string | null;
       citation: string | null;
     })
-  | (MemberRef & { type: 'promotion'; rankName: string; rankImageUrl: string | null; byName: string | null });
+  | (MemberRef & { type: 'promotion'; rankName: string; rankImageUrl: string | null; byName: string | null })
+  // World of Warcraft module: a character reached a tenth level (or 60), or was
+  // the guild's first to reach one.
+  | (MemberRef & { type: 'wowLevel'; characterName: string; className: string; level: number })
+  | (MemberRef & { type: 'wowFirst'; characterName: string; level: number; shared: boolean });
 
-const COLORS = { medalAward: 0xc0392b, warRecordAward: 0xd4af37, promotion: 0x2f9e5f };
+const COLORS = { medalAward: 0xc0392b, warRecordAward: 0xd4af37, promotion: 0x2f9e5f, wowLevel: 0x4a90d9, wowFirst: 0xe6a23c };
 
 /** Absolute-ise a stored /media/ URL so Discord can fetch it; pass through http(s) URLs. */
 function absolute(url: string | null | undefined, baseUrl?: string): string | undefined {
@@ -168,6 +174,22 @@ function defaults(event: AnnounceEvent): { title: string; description: string; a
         description: `**${event.memberName}** was promoted to **${event.rankName}**.${event.byName ? `\n_by ${event.byName}_` : ''}`,
         art: event.rankImageUrl,
         vars: { member: event.memberName, rank: event.rankName, by: event.byName ?? '' },
+      };
+    case 'wowLevel':
+      return {
+        title: '✨ Level milestone',
+        description: `**${event.characterName}** (${event.className}) reached level **${event.level}**.`,
+        art: null,
+        vars: { member: event.memberName, character: event.characterName, level: String(event.level), class: event.className },
+      };
+    case 'wowFirst':
+      return {
+        title: '🥇 Guild first',
+        description: event.shared
+          ? `**${event.characterName}** shares first place to level **${event.level}**.`
+          : `**${event.characterName}** is the first in the guild to reach level **${event.level}**.`,
+        art: null,
+        vars: { member: event.memberName, character: event.characterName, level: String(event.level) },
       };
   }
 }
