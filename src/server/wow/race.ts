@@ -1,14 +1,18 @@
 /**
  * Load everyone in the level race from D1: followed characters of non-banned
- * members, each with its observed level rows, plus what the cards and charts
- * need to show. Shared by the Discord "guild first" check and GET /race.
+ * members in the site's current region and Blizzard data section, each with its
+ * observed level rows, plus what the cards and charts need to show. Shared by
+ * the Discord "guild first" check and GET /race.
+ *
+ * The timeline is fetched with a join, never an IN (…) of character ids: D1 caps
+ * a statement at 100 bound parameters, which a guild passes easily.
  */
 
 import { drizzle } from 'drizzle-orm/d1';
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import { memberName } from '../../shared/names';
-import type { CharacterCard, LevelRow } from '../../shared/wow';
+import type { CharacterCard, LevelRow, WowConfig } from '../../shared/wow';
 import type { RaceCharacter } from './records';
 
 type DB = ReturnType<typeof drizzle<typeof s>>;
@@ -20,7 +24,15 @@ export type RaceRow = RaceCharacter & {
   trackedSince: number | null;
 };
 
-export async function loadRaceCharacters(database: DB): Promise<RaceRow[]> {
+export type RaceScope = Pick<WowConfig, 'region' | 'namespace'>;
+
+export async function loadRaceCharacters(database: DB, scope: RaceScope): Promise<RaceRow[]> {
+  const inRace = and(
+    eq(s.wowCharacters.followed, true),
+    eq(s.wowCharacters.region, scope.region),
+    eq(s.wowCharacters.namespace, scope.namespace),
+    ne(s.users.status, 'banned'),
+  );
   const rows = await database
     .select({
       c: s.wowCharacters,
@@ -30,7 +42,7 @@ export async function loadRaceCharacters(database: DB): Promise<RaceRow[]> {
     })
     .from(s.wowCharacters)
     .innerJoin(s.users, eq(s.users.id, s.wowCharacters.userId))
-    .where(and(eq(s.wowCharacters.followed, true), ne(s.users.status, 'banned')));
+    .where(inRace);
   if (!rows.length) return [];
 
   const timeline = await database
@@ -42,15 +54,9 @@ export async function loadRaceCharacters(database: DB): Promise<RaceRow[]> {
       sinceAt: s.wowTimeline.sinceAt,
     })
     .from(s.wowTimeline)
-    .where(
-      and(
-        inArray(
-          s.wowTimeline.characterId,
-          rows.map((r) => r.c.id),
-        ),
-        inArray(s.wowTimeline.kind, ['level', 'tracking_started']),
-      ),
-    );
+    .innerJoin(s.wowCharacters, eq(s.wowCharacters.id, s.wowTimeline.characterId))
+    .innerJoin(s.users, eq(s.users.id, s.wowCharacters.userId))
+    .where(and(inRace, inArray(s.wowTimeline.kind, ['level', 'tracking_started'])));
   const levels = new Map<number, LevelRow[]>();
   const started = new Map<number, number>();
   for (const t of timeline) {

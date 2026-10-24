@@ -23,6 +23,7 @@ import { newState } from '../auth/discord';
 import { appToken, authorizeUrl, BnetError, exchangeCode, fetchAccountCharacters, fetchUserInfo } from '../wow/bnet';
 import { settingsTokenStore } from '../wow/poll';
 import { planFollow } from '../wow/follow';
+import { chunk } from '../wow/d1';
 import { createWowMedals } from '../medals/wow';
 import { computeRace, pickCounted } from '../wow/records';
 import { loadRaceCharacters } from '../wow/race';
@@ -95,18 +96,25 @@ wow.get('/link/callback', requireWowModule, requireAuth, async (c) => {
   if (taken && taken.userId !== viewer.id) return back('error&reason=conflict');
   if (!chars.length) return back('error&reason=none');
 
-  const existing = await database
-    .select({ id: s.wowCharacters.id, userId: s.wowCharacters.userId, blizzardId: s.wowCharacters.blizzardId })
-    .from(s.wowCharacters)
-    .where(
-      and(
-        eq(s.wowCharacters.region, cfg.region),
-        inArray(
-          s.wowCharacters.blizzardId,
-          chars.map((ch) => ch.blizzardId),
-        ),
-      ),
+  // Chunked: D1 binds at most 100 values per statement.
+  const existing = [];
+  for (const ids of chunk(
+    chars.map((ch) => ch.blizzardId),
+    90,
+  )) {
+    existing.push(
+      ...(await database
+        .select({ id: s.wowCharacters.id, userId: s.wowCharacters.userId, blizzardId: s.wowCharacters.blizzardId })
+        .from(s.wowCharacters)
+        .where(
+          and(
+            eq(s.wowCharacters.region, cfg.region),
+            eq(s.wowCharacters.namespace, cfg.namespace),
+            inArray(s.wowCharacters.blizzardId, ids),
+          ),
+        )),
     );
+  }
   const byBlizzardId = new Map(existing.map((e) => [e.blizzardId, e]));
 
   const writes = [];
@@ -134,7 +142,14 @@ wow.get('/link/callback', requireWowModule, requireAuth, async (c) => {
       writes.push(
         database
           .insert(s.wowCharacters)
-          .values({ ...fields, userId: viewer.id, region: cfg.region, blizzardId: ch.blizzardId, level: ch.level }),
+          .values({
+            ...fields,
+            userId: viewer.id,
+            region: cfg.region,
+            namespace: cfg.namespace,
+            blizzardId: ch.blizzardId,
+            level: ch.level,
+          }),
       );
     } else if (row.userId === viewer.id) {
       // Refresh the listing details; level and history belong to the sweep.
@@ -153,10 +168,19 @@ wow.post('/characters/follow', requireWowModule, requireAuth, async (c) => {
   const main = Number.isInteger(body.main) ? (body.main as number) : null;
 
   const database = db(c.env);
+  const cfg = await loadWowConfig(c.env, database);
+  // Same scope as the chooser shows: characters from other data sections are
+  // neither followed nor deleted by this save.
   const owned = await database
     .select({ id: s.wowCharacters.id, followed: s.wowCharacters.followed, level: s.wowCharacters.level })
     .from(s.wowCharacters)
-    .where(eq(s.wowCharacters.userId, viewer.id));
+    .where(
+      and(
+        eq(s.wowCharacters.userId, viewer.id),
+        eq(s.wowCharacters.region, cfg.region),
+        eq(s.wowCharacters.namespace, cfg.namespace),
+      ),
+    );
   const plan = planFollow(owned, follow, main);
   if ('error' in plan) return c.json({ error: plan.error }, 400);
 
@@ -197,10 +221,21 @@ wow.get('/members/:userId', requireWowModule, requireAuth, async (c) => {
   if (!Number.isInteger(userId)) return c.json({ error: 'Not found' }, 404);
   const self = viewer.id === userId;
   const database = db(c.env);
+  const cfg = await loadWowConfig(c.env, database);
 
   const [link, rows] = await Promise.all([
     database.query.wowLinks.findFirst({ where: eq(s.wowLinks.userId, userId) }),
-    database.select().from(s.wowCharacters).where(eq(s.wowCharacters.userId, userId)),
+    // Only characters from the site's current region and Blizzard data section.
+    database
+      .select()
+      .from(s.wowCharacters)
+      .where(
+        and(
+          eq(s.wowCharacters.userId, userId),
+          eq(s.wowCharacters.region, cfg.region),
+          eq(s.wowCharacters.namespace, cfg.namespace),
+        ),
+      ),
   ]);
 
   const followed = rows
@@ -284,7 +319,7 @@ wow.get('/race', requireWowModule, async (c) => {
     return c.json({ error: 'Authentication required' }, 401);
   }
   const alts = c.req.query('alts') === '1';
-  const rows = await loadRaceCharacters(database);
+  const rows = await loadRaceCharacters(database, await loadWowConfig(c.env, database));
   const counted = pickCounted(rows, alts) as typeof rows;
   const now = Math.floor(Date.now() / 1000);
   const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);

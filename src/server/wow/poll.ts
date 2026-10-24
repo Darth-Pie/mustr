@@ -6,25 +6,30 @@
  * Each run: refresh the app token if needed, spend up to WOW_STATUS_CALLS_PER_RUN
  * calls on daily status checks (Blizzard's data-retention rule, see status.ts),
  * then check followed characters, least recently checked first, until
- * WOW_CALL_BUDGET calls are spent. Equipment is only fetched when the character
- * has logged out since the last look. What changed becomes timeline rows and
- * badges, and is returned as events for medals and Discord (events.ts).
+ * WOW_CALL_BUDGET calls are spent. Only characters in the site's current region
+ * and Blizzard data section are touched. Equipment is only fetched when the
+ * character has logged out since the last look. What changed becomes timeline
+ * rows and badges, and is returned as events for medals and Discord (events.ts).
  *
- * A 429 or Blizzard-side error ends the run (the next one carries on). A bad key
- * (401/403) ends it and is shown on the admin card. Anything else wrong with one
- * character is logged and skipped.
+ * Failures never pin the queue: every attempt is stamped before anything can
+ * end the run, so a character whose requests keep failing moves to the back.
+ * A 429 or Blizzard-side error ends the run (the next one carries on) and shows
+ * on the admin card. A 401 means the app token went bad: it's dropped, so the
+ * next run asks for a fresh one. Anything else wrong with one character —
+ * including a 403 for a single profile — is logged and skipped.
  */
 
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, eq, isNull, lt, or } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { Env } from '../env';
-import { saveWowConfig, wowReady } from '../modules';
+import { loadWowConfig, saveWowConfig, wowReady } from '../modules';
 import type { BadgeKey, LevelRow, WowConfig } from '../../shared/wow';
 import { appToken, BnetError, fetchEquipment, fetchStatus, fetchSummary, type FetchFn, type TokenStore } from './bnet';
 import { diffCharacter, type EntryDraft } from './diff';
 import { newBadges } from './badges';
 import { statusDecision } from './status';
+import { chunkByParams } from './d1';
 
 type DB = ReturnType<typeof drizzle<typeof s>>;
 
@@ -33,6 +38,7 @@ export const WOW_STATUS_CALLS_PER_RUN = 10;
 export const WOW_CRON = '2-59/5 * * * *';
 
 const TOKEN_KEY = 'wow_token';
+const HOUR = 3600;
 const DAY = 86400;
 
 export interface WowEvent {
@@ -41,6 +47,8 @@ export interface WowEvent {
   characterName: string;
   className: string;
   firstCheck: boolean;
+  /** Gear was read for the first time this check; its badges predate tracking. */
+  gearBaseline: boolean;
   entries: EntryDraft[];
   badges: BadgeKey[];
 }
@@ -77,7 +85,14 @@ export function settingsTokenStore(database: DB): TokenStore {
 
 /** An error that should end the whole run rather than skip one character. */
 const endsRun = (err: unknown) =>
-  err instanceof BudgetSpent || (err instanceof BnetError && (err.retryable || err.status === 401 || err.status === 403));
+  err instanceof BudgetSpent || (err instanceof BnetError && (err.retryable || err.status === 401));
+
+/** Record (or clear) the sweep's last error without overwriting an admin's concurrent edit. */
+async function recordError(env: Env, error: string | null, now: number) {
+  const cfg = await loadWowConfig(env);
+  if (cfg.lastError === error) return;
+  await saveWowConfig(env, { ...cfg, lastError: error, lastErrorAt: error ? now : null }, null);
+}
 
 function timelineRow(characterId: number, e: EntryDraft): typeof s.wowTimeline.$inferInsert {
   const base = { characterId, kind: e.kind, seenAt: e.seenAt, sinceAt: e.sinceAt };
@@ -101,6 +116,14 @@ function timelineRow(characterId: number, e: EntryDraft): typeof s.wowTimeline.$
   }
 }
 
+/** Followed characters in the site's current region and data section. */
+const inScope = (cfg: WowConfig) =>
+  and(
+    eq(s.wowCharacters.followed, true),
+    eq(s.wowCharacters.region, cfg.region),
+    eq(s.wowCharacters.namespace, cfg.namespace),
+  );
+
 async function statusPass(database: DB, cfg: WowConfig, token: string, f: FetchFn, now: number, out: SweepOutcome) {
   const due = await database
     .select({
@@ -113,15 +136,18 @@ async function statusPass(database: DB, cfg: WowConfig, token: string, f: FetchF
     .from(s.wowCharacters)
     .where(
       and(
-        eq(s.wowCharacters.followed, true),
+        inScope(cfg),
         or(isNull(s.wowCharacters.lastValidatedAt), lt(s.wowCharacters.lastValidatedAt, now - DAY)),
+        // A check that errored waits an hour, so it can't hog the queue.
+        or(isNull(s.wowCharacters.statusAttemptAt), lt(s.wowCharacters.statusAttemptAt, now - HOUR)),
       ),
     )
     // SQLite sorts NULL first ascending: never-checked characters go first.
-    .orderBy(asc(s.wowCharacters.lastValidatedAt))
+    .orderBy(asc(s.wowCharacters.statusAttemptAt))
     .limit(WOW_STATUS_CALLS_PER_RUN);
 
   for (const ch of due) {
+    await database.update(s.wowCharacters).set({ statusAttemptAt: now }).where(eq(s.wowCharacters.id, ch.id));
     try {
       const decision = statusDecision(await fetchStatus(cfg, token, ch.realmSlug, ch.name, f), ch.blizzardId, ch.statusFailures);
       out.statusChecked++;
@@ -155,14 +181,17 @@ async function pollCharacter(
   ch: typeof s.wowCharacters.$inferSelect,
 ): Promise<WowEvent | null> {
   const summary = await fetchSummary(cfg, token, ch.realmSlug, ch.name, f);
-  if (!summary) {
+  // Not found, or a different character now answers to this name (deleted and
+  // recreated, or transferred): leave the stored history alone. The daily status
+  // check sees the changed id and deletes the old character.
+  if (!summary || summary.blizzardId !== ch.blizzardId) {
     await database.update(s.wowCharacters).set({ lastPolledAt: now }).where(eq(s.wowCharacters.id, ch.id));
     return null;
   }
 
   const needGear = summary.lastLoginAt !== ch.lastLoginAt || ch.gear === null;
-  // Asked for gear and got "not found": treat as wearing nothing, not "unknown".
-  const gear = needGear ? ((await fetchEquipment(cfg, token, ch.realmSlug, ch.name, f)) ?? {}) : null;
+  // Gear that can't be read (404) stays as stored; it's never mistaken for "nothing".
+  const gear = needGear ? await fetchEquipment(cfg, token, ch.realmSlug, ch.name, f) : null;
 
   const earnedRows = await database
     .select({ badgeKey: s.wowTimeline.badgeKey })
@@ -199,8 +228,10 @@ async function pollCharacter(
       ...(firstCheck ? { baselineLevel: summary.level } : {}),
     })
     .where(eq(s.wowCharacters.id, ch.id));
-  if (rows.length) await database.batch([database.insert(s.wowTimeline).values(rows), update]);
-  else await update;
+  // D1 binds at most 100 values per statement: split the timeline insert, but
+  // keep it in one batch with the character update so the two land together.
+  const inserts = chunkByParams(rows).map((part) => database.insert(s.wowTimeline).values(part));
+  await database.batch([update, ...inserts]);
 
   const levels: LevelRow[] = await database
     .select({ level: s.wowTimeline.level, seenAt: s.wowTimeline.seenAt, sinceAt: s.wowTimeline.sinceAt })
@@ -229,6 +260,7 @@ async function pollCharacter(
     characterName: summary.name,
     className: summary.className,
     firstCheck,
+    gearBaseline: diff.gearBaseline,
     entries: diff.entries,
     badges,
   };
@@ -254,7 +286,7 @@ export async function runWowSweep(env: Env, now = Math.floor(Date.now() / 1000))
     const chars = await database
       .select()
       .from(s.wowCharacters)
-      .where(eq(s.wowCharacters.followed, true))
+      .where(inScope(cfg))
       .orderBy(asc(s.wowCharacters.lastPolledAt))
       .limit(WOW_CALL_BUDGET);
     for (const ch of chars) {
@@ -263,19 +295,30 @@ export async function runWowSweep(env: Env, now = Math.floor(Date.now() / 1000))
         out.polled++;
         if (event) out.events.push(event);
       } catch (err) {
+        // Stamp the attempt first, so a character that keeps failing moves to
+        // the back of the queue instead of being first in every run.
+        if (!(err instanceof BudgetSpent)) {
+          await database.update(s.wowCharacters).set({ lastPolledAt: now }).where(eq(s.wowCharacters.id, ch.id));
+        }
         if (endsRun(err)) throw err;
         console.error(`WoW check failed for character ${ch.id}:`, err instanceof Error ? err.message : err);
-        await database.update(s.wowCharacters).set({ lastPolledAt: now }).where(eq(s.wowCharacters.id, ch.id));
       }
     }
-    if (cfg.lastError !== null) await saveWowConfig(env, { ...cfg, lastError: null, lastErrorAt: null }, null);
+    await recordError(env, null, now);
   } catch (err) {
-    if (err instanceof BudgetSpent) return out;
+    if (err instanceof BudgetSpent) {
+      await recordError(env, null, now);
+      return out;
+    }
+    if (!(err instanceof BnetError)) throw err;
     out.stoppedEarly = true;
-    if (err instanceof BnetError && (err.status === 401 || err.status === 403)) {
-      await saveWowConfig(env, { ...cfg, lastError: `Blizzard refused the key (${err.status})`, lastErrorAt: now }, null);
-    } else if (!(err instanceof BnetError && err.retryable)) {
-      throw err;
+    if (err.status === 401) {
+      // The cached app token stopped working; drop it so the next run asks for a
+      // new one. If the key itself was revoked, that request fails here too.
+      await database.delete(s.settings).where(eq(s.settings.key, TOKEN_KEY));
+      await recordError(env, `Blizzard rejected the sweep's credentials (401). Test the connection if this repeats.`, now);
+    } else {
+      await recordError(env, `Blizzard returned ${err.status}; the sweep will retry.`, now);
     }
   }
   return out;

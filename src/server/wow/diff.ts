@@ -52,6 +52,12 @@ export interface DiffResult {
   next: StoredState;
   entries: EntryDraft[];
   lowerLevelIgnored: boolean;
+  /**
+   * Gear arrived for the first time after the baseline (it couldn't be read at
+   * the first check). It becomes the starting gear: no item rows, and badges it
+   * earns count as "already had it when tracking started".
+   */
+  gearBaseline: boolean;
 }
 
 /** Known slots in paper-doll order, then any others alphabetically. */
@@ -75,6 +81,7 @@ export function diffCharacter(input: DiffInput): DiffResult {
       next: { level: summary.level, guildName: summary.guildName, gear, lastLoginAt },
       entries: [{ kind: 'tracking_started', level: summary.level, seenAt, sinceAt: null }],
       lowerLevelIgnored: false,
+      gearBaseline: false,
     };
   }
 
@@ -93,7 +100,8 @@ export function diffCharacter(input: DiffInput): DiffResult {
     entries.push({ kind: 'level', level, seenAt, sinceAt });
   }
 
-  if (input.gear) {
+  const gearBaseline = !!input.gear && stored.gear === null;
+  if (input.gear && !gearBaseline) {
     let rareTagged = earned.has('first_rare');
     let epicTagged = earned.has('first_epic');
     for (const slot of orderedSlots(input.gear)) {
@@ -122,5 +130,6 @@ export function diffCharacter(input: DiffInput): DiffResult {
     },
     entries,
     lowerLevelIgnored,
+    gearBaseline,
   };
 }

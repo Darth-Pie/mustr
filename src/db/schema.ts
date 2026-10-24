@@ -198,6 +198,10 @@ export const wowCharacters = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     region: text('region', { enum: ['us', 'eu', 'kr', 'tw'] }).notNull(),
+    // Blizzard's data section the character was linked under (e.g. Classic Era
+    // while testing, then Forever). Only rows matching the site's current
+    // section are checked, shown or raced.
+    namespace: text('namespace').notNull().default(''),
     blizzardId: integer('blizzard_id').notNull(),
     realmSlug: text('realm_slug').notNull(),
     realmName: text('realm_name').notNull(),
@@ -219,12 +223,15 @@ export const wowCharacters = sqliteTable(
     lastLoginAt: integer('last_login_at'),
     lastPolledAt: integer('last_polled_at'),
     lastValidatedAt: integer('last_validated_at'),
+    // When a status check was last attempted, answered or not — so a character
+    // whose check keeps erroring waits its turn instead of blocking the queue.
+    statusAttemptAt: integer('status_attempt_at'),
     // Consecutive daily status checks that came back "not found".
     statusFailures: integer('status_failures').notNull().default(0),
     createdAt: integer('created_at').notNull().default(now),
   },
   (t) => [
-    uniqueIndex('wow_characters_region_blizzard_idx').on(t.region, t.blizzardId),
+    uniqueIndex('wow_characters_region_blizzard_idx').on(t.region, t.namespace, t.blizzardId),
     index('wow_characters_poll_idx').on(t.followed, t.lastPolledAt),
     index('wow_characters_user_idx').on(t.userId),
   ],

@@ -5,8 +5,10 @@
  * budget with the Blizzard calls — hence WOW_POST_BUDGET. Per character: at most
  * one milestone post (the first enabled of milestonePosts' preference order),
  * then its medal posts. A character's first check posts nothing, medals
- * included: those badges were earned before mustr was watching. Everything here
- * is best-effort; a failure never undoes the timeline rows already saved.
+ * included: those badges were earned before mustr was watching. Medals from
+ * gear read for the first time (it couldn't be read at the first check) are
+ * awarded the same quiet way. Everything here is best-effort; a failure never
+ * undoes the timeline rows already saved.
  */
 
 import { drizzle } from 'drizzle-orm/d1';
@@ -14,6 +16,7 @@ import { inArray } from 'drizzle-orm';
 import * as s from '../../db/schema';
 import type { Env } from '../env';
 import { loadConfig } from '../config';
+import { loadWowConfig } from '../modules';
 import { announce, loadAnnouncementConfig } from '../discord/announce';
 import { awardWowMedals } from '../medals/wow';
 import { memberName } from '../../shared/names';
@@ -30,9 +33,10 @@ export async function handleWowEvents(env: Env, events: WowEvent[], now: number)
   if (!events.length) return result;
 
   const database = drizzle(env.DB, { schema: s });
+  const wow = await loadWowConfig(env, database);
   const [config, race, app, users] = await Promise.all([
     loadAnnouncementConfig(database),
-    loadRaceCharacters(database),
+    loadRaceCharacters(database, wow),
     loadConfig(env, database),
     database
       .select({
@@ -64,7 +68,8 @@ export async function handleWowEvents(env: Env, events: WowEvent[], now: number)
 
     let awards: Awaited<ReturnType<typeof awardWowMedals>> = [];
     try {
-      awards = await awardWowMedals(database, ev.userId, ev.characterName, ev.badges, ev.firstCheck);
+      // Badges from gear first read this check predate tracking, like a first check's.
+      awards = await awardWowMedals(database, ev.userId, ev.characterName, ev.badges, ev.firstCheck || ev.gearBaseline);
       result.medals += awards.length;
     } catch (err) {
       console.error('WoW medal award failed', err);
@@ -88,7 +93,7 @@ export async function handleWowEvents(env: Env, events: WowEvent[], now: number)
       );
       result.posted++;
     }
-    for (const a of awards) {
+    for (const a of ev.gearBaseline ? [] : awards) {
       if (!canPost('medalAward')) break;
       await announce(
         env,

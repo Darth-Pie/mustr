@@ -119,3 +119,11 @@ test('a missing logout time falls back to now', () => {
   assert.deepEqual(r.entries, [{ kind: 'level', level: 21, seenAt: 9999, sinceAt: 500 }]);
   assert.equal(r.next.lastLoginAt, 500);
 });
+
+test('gear seen for the first time after the baseline becomes the gear baseline', () => {
+  const r = diffCharacter(make({ stored: { gear: null }, gear: { HEAD: item(5, 'RARE'), MAIN_HAND: item(3, 'EPIC') } }));
+  assert.equal(items(r).length, 0);
+  assert.equal(r.gearBaseline, true);
+  assert.deepEqual(Object.keys(r.next.gear!), ['HEAD', 'MAIN_HAND']);
+  assert.equal(diffCharacter(make({ gear: { HEAD: item(5, 'RARE') } })).gearBaseline, false);
+});

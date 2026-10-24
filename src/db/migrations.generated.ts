@@ -623,6 +623,7 @@ export const SCHEMA_STATEMENTS: string[] = [
 	\`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	\`user_id\` integer NOT NULL,
 	\`region\` text NOT NULL,
+	\`namespace\` text DEFAULT '' NOT NULL,
 	\`blizzard_id\` integer NOT NULL,
 	\`realm_slug\` text NOT NULL,
 	\`realm_name\` text NOT NULL,
@@ -641,11 +642,12 @@ export const SCHEMA_STATEMENTS: string[] = [
 	\`last_login_at\` integer,
 	\`last_polled_at\` integer,
 	\`last_validated_at\` integer,
+	\`status_attempt_at\` integer,
 	\`status_failures\` integer DEFAULT 0 NOT NULL,
 	\`created_at\` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE cascade
 )`,
-  `CREATE UNIQUE INDEX \`wow_characters_region_blizzard_idx\` ON \`wow_characters\` (\`region\`,\`blizzard_id\`)`,
+  `CREATE UNIQUE INDEX \`wow_characters_region_blizzard_idx\` ON \`wow_characters\` (\`region\`,\`namespace\`,\`blizzard_id\`)`,
   `CREATE INDEX \`wow_characters_poll_idx\` ON \`wow_characters\` (\`followed\`,\`last_polled_at\`)`,
   `CREATE INDEX \`wow_characters_user_idx\` ON \`wow_characters\` (\`user_id\`)`,
   `CREATE TABLE \`wow_links\` (

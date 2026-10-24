@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "55f1afd4-d5c0-4b66-a971-b95191419685",
+  "id": "de08059e-92a4-4df2-989b-f3f226ea80f8",
   "prevId": "aae80e79-508a-4f14-8bdc-adb7602b67f4",
   "tables": {
     "alliance_invites": {
@@ -4814,6 +4814,14 @@
           "notNull": true,
           "autoincrement": false
         },
+        "namespace": {
+          "name": "namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
         "blizzard_id": {
           "name": "blizzard_id",
           "type": "integer",
@@ -4942,6 +4950,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "status_attempt_at": {
+          "name": "status_attempt_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "status_failures": {
           "name": "status_failures",
           "type": "integer",
@@ -4964,6 +4979,7 @@
           "name": "wow_characters_region_blizzard_idx",
           "columns": [
             "region",
+            "namespace",
             "blizzard_id"
           ],
           "isUnique": true
