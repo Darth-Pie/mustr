@@ -7786,3 +7786,153 @@ a.button.primary { background: var(--color-accent); color: var(--color-accent-te
 .wow-redirect code {
   word-break: break-all;
 }
+
+.wow-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.wow-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.6rem;
+}
+.wow-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  text-align: left;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--class-color);
+  border-radius: var(--radius);
+  background: var(--color-surface, transparent);
+  color: var(--color-text);
+}
+.wow-card.is-selected {
+  border-color: var(--class-color);
+  box-shadow: 0 0 0 1px var(--class-color);
+}
+.wow-card-name {
+  font-weight: 600;
+  color: var(--class-color);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.wow-main {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius);
+  background: var(--color-border);
+  color: var(--color-text);
+}
+.wow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.wow-link-btn {
+  display: inline-block;
+  text-decoration: none;
+  border-radius: var(--radius);
+  padding: 0.4rem 0.75rem;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.wow-chooser {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+.wow-chooser ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.wow-chooser li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.wow-journey-month {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+.wow-journey-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--color-border);
+  margin-left: 0.9rem;
+}
+.wow-journey-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.3rem 0 0.3rem 0;
+  margin-left: -0.9rem;
+}
+.wow-level-dot {
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg, var(--color-surface));
+  font-size: 0.75rem;
+}
+.wow-journey-item.is-milestone .wow-level-dot {
+  border: 2px solid var(--color-accent);
+  font-weight: 700;
+}
+.wow-journey-item.is-milestone > span:last-child {
+  font-weight: 600;
+}
+.wow-journey-dot {
+  flex: none;
+  width: 1.7rem;
+  display: inline-flex;
+  justify-content: center;
+}
+.wow-journey-dot::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-muted);
+}
+.wow-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.05rem 0.35rem;
+  margin-right: 0.4rem;
+  border-radius: var(--radius);
+  border: 1px solid currentColor;
+}
+.wow-tag-first_epic {
+  color: #a335ee;
+}
+.wow-tag-first_rare {
+  color: #0070dd;
+}
+.wow-disclaimer {
+  margin: 0;
+}

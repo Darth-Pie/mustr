@@ -20,6 +20,7 @@ import { useModules, useScConfig } from '../lib/modules';
 import HangarView from '../components/HangarView';
 import HangarImport from '../components/HangarImport';
 import ScVerify from '../components/ScVerify';
+import WowCharacters from '../components/WowCharacters';
 import MemberTraining from '../components/MemberTraining';
 import MemberActivity from '../components/MemberActivity';
 import SigilEmblem from '../components/SigilEmblem';
@@ -621,6 +622,10 @@ export default function MemberDetail() {
               <MemberTraining userId={member.id} isSelf={isSelf} />
             </div>
           )}
+
+          {/* Renders itself only when there is something to show: the member's own
+              link controls, or someone else's followed characters. */}
+          {modules.wow && <WowCharacters userId={member.id} isSelf={isSelf} />}
 
           {modules.starcitizen && (sc.hangarEnabled || sc.verifyEnabled) && (isSelf || can('hangar.view')) && (
             <section className="block hangar-section">
