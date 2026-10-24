@@ -1,0 +1,13 @@
+{
+  "id": 201234567,
+  "name": "Brightblade",
+  "faction": { "type": "ALLIANCE", "name": "Alliance" },
+  "race": { "id": 1, "name": "Human" },
+  "character_class": { "id": 2, "name": "Paladin" },
+  "realm": { "id": 5001, "name": "Sylvanas", "slug": "sylvanas" },
+  "guild": { "id": 77, "name": "The Cabbage Crew" },
+  "level": 42,
+  "last_login_timestamp": 1760000000000,
+  "average_item_level": 35,
+  "equipped_item_level": 36
+}

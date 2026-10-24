@@ -1,0 +1,8 @@
+{
+  "equipped_items": [
+    { "item": { "id": 10001 }, "slot": { "type": "HEAD", "name": "Head" }, "quality": { "type": "RARE", "name": "Rare" }, "name": "Helm of Example", "level": { "value": 40 } },
+    { "item": { "id": 10002 }, "slot": { "type": "CHEST", "name": "Chest" }, "quality": { "type": "UNCOMMON", "name": "Uncommon" }, "name": "Tunic of Example", "level": { "value": 38 } },
+    { "item": { "id": 19019 }, "slot": { "type": "MAIN_HAND", "name": "Main Hand" }, "quality": { "type": "EPIC", "name": "Epic" }, "name": "Example Blade", "level": { "value": 44 } },
+    { "item": { "id": 10003 }, "slot": { "type": "SHIRT", "name": "Shirt" }, "quality": { "type": "COMMON", "name": "Common" }, "name": "Plain Shirt", "level": { "value": 1 } }
+  ]
+}

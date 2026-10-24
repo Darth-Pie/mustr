@@ -10,6 +10,7 @@
     "deploy": "npm run build && wrangler deploy",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "db:bundle": "node scripts/bundle-migrations.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply clantek --local",

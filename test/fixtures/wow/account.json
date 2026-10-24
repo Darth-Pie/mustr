@@ -1,0 +1,33 @@
+{
+  "id": 9001,
+  "wow_accounts": [
+    {
+      "id": 1,
+      "characters": [
+        {
+          "id": 201234567,
+          "name": "Brightblade",
+          "realm": { "id": 5001, "name": "Sylvanas", "slug": "sylvanas" },
+          "playable_class": { "id": 2, "name": "Paladin" },
+          "playable_race": { "id": 1, "name": "Human" },
+          "faction": { "type": "ALLIANCE", "name": "Alliance" },
+          "level": 42
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "characters": [
+        {
+          "id": 201234999,
+          "name": "Quickpaw",
+          "realm": { "id": 5001, "name": "Sylvanas", "slug": "sylvanas" },
+          "playable_class": { "id": 11, "name": "Druid" },
+          "playable_race": { "id": 4, "name": "Night Elf" },
+          "faction": { "type": "ALLIANCE", "name": "Alliance" },
+          "level": 28
+        }
+      ]
+    }
+  ]
+}
