@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   parseSummary,
   parseEquipment,
@@ -81,4 +81,19 @@ test('qualityAtLeast follows QUALITY_ORDER', () => {
   assert.equal(qualityAtLeast('EPIC', 'RARE'), true);
   assert.equal(qualityAtLeast('UNCOMMON', 'RARE'), false);
   assert.equal(qualityAtLeast('RARE', 'RARE'), true);
+});
+
+// Real Classic responses, saved by scripts/wow-capture.ts once a Battle.net key
+// exists. Skipped until then; once captured they must parse like the samples.
+const live = ['live-summary', 'live-equipment', 'live-status'].every((n) =>
+  existsSync(new URL(`../fixtures/wow/${n}.json`, import.meta.url)),
+);
+
+test('live Classic responses parse', { skip: !live && 'no captured live fixtures yet' }, () => {
+  const s = parseSummary(fx('live-summary'));
+  assert.ok(s.level >= 1 && s.level <= 60);
+  assert.equal(s.name, 'Examplechar');
+  const g = parseEquipment(fx('live-equipment'));
+  for (const item of Object.values(g)) assert.ok(item.itemId > 0 && item.name.length > 0);
+  assert.equal(parseStatus(fx('live-status')).blizzardId, s.blizzardId);
 });
