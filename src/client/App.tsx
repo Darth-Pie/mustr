@@ -49,6 +49,9 @@ const CustomPage = lazy(() => import('./pages/CustomPage'));
 const News = lazy(() => import('./pages/News'));
 const NewsPost = lazy(() => import('./pages/NewsPost'));
 const Events = lazy(() => import('./pages/Events'));
+// The World of Warcraft level race; brings Chart.js with it, so only visitors
+// who open it pay for the charting library.
+const Leveling = lazy(() => import('./pages/Leveling'));
 
 /** Shown to a pending applicant who lands on a members-only area. */
 function PendingNotice() {
@@ -343,6 +346,14 @@ export default function App() {
               <Protected>
                 <Roster />
               </Protected>
+            }
+          />
+          <Route
+            path="/leveling"
+            element={
+              <PublicOr pageKey="leveling" publicSlugs={publicSlugs} ready={accessReady}>
+                <Leveling />
+              </PublicOr>
             }
           />
           <Route

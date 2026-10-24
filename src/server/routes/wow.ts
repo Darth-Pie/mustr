@@ -24,6 +24,9 @@ import { appToken, authorizeUrl, BnetError, exchangeCode, fetchAccountCharacters
 import { settingsTokenStore } from '../wow/poll';
 import { planFollow } from '../wow/follow';
 import { createWowMedals } from '../medals/wow';
+import { computeRace, pickCounted } from '../wow/records';
+import { loadRaceCharacters } from '../wow/race';
+import { loadPageAccess } from '../pageAccess';
 import { cleanWowConfig, publicWowConfig } from '../../shared/wow';
 import type {
   AccountCandidate,
@@ -31,6 +34,7 @@ import type {
   CharacterCard,
   ItemQuality,
   MemberWowData,
+  RaceData,
   TimelineEntry,
 } from '../../shared/wow';
 
@@ -265,6 +269,43 @@ wow.get('/members/:userId', requireWowModule, requireAuth, async (c) => {
     characters,
     timeline,
     candidates,
+  };
+  return c.json(body);
+});
+
+/* ------------------------------------------------------------------ *
+ * The level race, for the Leveling page. Members-only unless an admin made
+ * the page public (page access 'leveling'), like News.
+ * ------------------------------------------------------------------ */
+
+wow.get('/race', requireWowModule, async (c) => {
+  const database = db(c.env);
+  if (c.get('viewer') == null && (await loadPageAccess(c.env, database)).leveling !== 'public') {
+    return c.json({ error: 'Authentication required' }, 401);
+  }
+  const alts = c.req.query('alts') === '1';
+  const rows = await loadRaceCharacters(database);
+  const counted = pickCounted(rows, alts) as typeof rows;
+  const now = Math.floor(Date.now() / 1000);
+  const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+  const itemLevels = counted.map((r) => r.card.itemLevel).filter((v): v is number => v !== null);
+
+  const body: RaceData = {
+    summary: {
+      members: new Set(rows.map((r) => r.userId)).size,
+      avgLevel: mean(counted.map((r) => r.level)) ?? 0,
+      avgItemLevel: mean(itemLevels),
+      activeThisWeek: counted.filter((r) => (r.card.lastLoginAt ?? 0) >= now - 7 * 86400).length,
+    },
+    characters: counted.map((r) => ({ ...r.card, memberName: r.memberName })),
+    records: computeRace(rows, alts),
+    series: counted.map((r) => ({
+      characterId: r.characterId,
+      points: [
+        ...(r.trackedSince !== null && r.baselineLevel !== null ? [{ t: r.trackedSince, level: r.baselineLevel }] : []),
+        ...r.levels.map((l) => ({ t: l.seenAt, level: l.level })),
+      ],
+    })),
   };
   return c.json(body);
 });

@@ -294,3 +294,19 @@ export interface MemberWowData {
   /** Only for the member themselves. */
   candidates: AccountCandidate[];
 }
+
+export interface RaceRecordsData {
+  standings: { characterId: number; level: number; reachedAt: number | null }[];
+  firsts: { level: number; characterIds: number[]; at: number }[];
+  fastest: { from: number; to: number; characterId: number; seconds: number }[];
+  scenic: { from: number; to: number; characterId: number; seconds: number } | null;
+}
+
+/** GET /api/wow/race — everything the Leveling page shows. */
+export interface RaceData {
+  summary: { members: number; avgLevel: number; avgItemLevel: number | null; activeThisWeek: number };
+  characters: (CharacterCard & { memberName: string })[];
+  records: RaceRecordsData;
+  /** Per character: the tracking baseline, then each level reached. */
+  series: { characterId: number; points: { t: number; level: number }[] }[];
+}

@@ -7936,3 +7936,111 @@ a.button.primary { background: var(--color-accent); color: var(--color-accent-te
 .wow-disclaimer {
   margin: 0;
 }
+
+.leveling-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.leveling-period {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.leveling-period button[aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.leveling-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+.leveling-chart {
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  min-width: 0;
+}
+.leveling-chart figcaption {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin-bottom: 0.4rem;
+}
+.leveling-canvas {
+  position: relative;
+  height: 16rem;
+}
+.leveling-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+}
+.leveling-grid h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  margin: 0 0 0.5rem;
+}
+.leveling-grid h3 + p,
+.leveling-records + h3 {
+  margin-top: 1rem;
+}
+.leveling-standings,
+.leveling-records {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.leveling-standings {
+  counter-reset: rank;
+}
+.leveling-standings li,
+.leveling-records li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.leveling-standings li::before {
+  counter-increment: rank;
+  content: counter(rank);
+  width: 1.2rem;
+  text-align: right;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+.leveling-level {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.leveling-band {
+  flex: none;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.leveling-name {
+  color: var(--class-color);
+  font-weight: 600;
+}

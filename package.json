@@ -27,6 +27,7 @@
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
+    "chart.js": "^4.6.1",
     "dompurify": "^3.4.13",
     "drizzle-orm": "^0.45.2",
     "gifenc": "^1.0.3",
